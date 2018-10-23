@@ -1,8 +1,8 @@
-function sstValidateFullAll(varargin)
+function itstValidateFullAll(varargin)
 % Run unit tests for SST
 %
 % Syntax:
-%    sstValidateFullAll
+%    itsetValidateFullAll
 %
 % Description:
 %    Run the set of unit tests for the SilentSubstitutionToolbox. Return
@@ -16,14 +16,16 @@ close all;
 %% Set return flag
 success = true;
 
-%% We will use preferences for the 'isetbioValidation' project
-thisProject = 'SilentSubstitutionToolbox';
+%% We will use preferences for this project
+thisProject = 'ISETTreeShrew';
 
-%% Here are some tests
-status = ReceptorIsolateDemo('validate','basichuman','whichDirectionNumber',1);
-if (~status)
-    success = false;
-end
+%% Run your test here.  Set success to false if any fail
+%
+% For example ...
+% status = ReceptorIsolateDemo('validate','basichuman','whichDirectionNumber',1);
+% if (~status)
+%     success = false;
+% end
 
 %% Report whether we are OK
 assert(success, 'One or more validations failed.');
