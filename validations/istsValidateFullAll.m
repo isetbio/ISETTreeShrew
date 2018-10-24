@@ -1,11 +1,11 @@
-function itstValidateFullAll(varargin)
+function istsValidateFullAll(varargin)
 % Run unit tests for SST
 %
 % Syntax:
-%    itsetValidateFullAll
+%    istsValidateFullAll
 %
 % Description:
-%    Run the set of unit tests for the SilentSubstitutionToolbox. Return
+%    Run the set of unit tests for ISETTreeShrew. Return
 %    true or false depending on success. Designed for use with Jenkins
 %    build integration.
 %
