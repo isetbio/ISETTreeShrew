@@ -14,10 +14,15 @@ subplotPos = NicePlot.getSubPlotPosVectors(...
     'bottomMargin',   0.01, 'topMargin',      0.04);
 
 figure(); clf;
+cmap = brewermap(1024,'*Spectral');
+colormap(cmap);
+hProgressBar = waitbar(0,'Getting photon rates ...');
 for iBand = 1:numel(wavelengthBandsToVisualize)
     if (iBand > subplotRows*subplotCols)
         continue
     end
+    waitbar(iBand/numel(wavelengthBandsToVisualize), hProgressBar, ...
+        sprintf('Getting photon rates at %2.0f nm', wavelengthBandsToVisualize(iBand)));
     row = floor((iBand-1)/subplotCols)+1; col = mod(iBand-1,subplotCols)+1;
     subplot('Position', subplotPos(row,col).v);
     % find index of spectral slices requested
@@ -31,8 +36,7 @@ for iBand = 1:numel(wavelengthBandsToVisualize)
     title(sprintf('%2.0fnm', wavelengthSupport(visualizedWavelengthIndex)));
     colorbar();
 end
-
-cmap = brewermap(1024,'Spectral');
-colormap(cmap);
+close(hProgressBar);
 drawnow;
+
 end

@@ -3,6 +3,7 @@ function visualizeSceneRGB(spatialSupport, spatialSupportUnits, ...
 % Method to visualize the scene as RGB
 spatialSupportX = squeeze(spatialSupport(1,:,1));
 spatialSupportY = squeeze(spatialSupport(:,1,2));
+[~,midRow] = min(abs(spatialSupportY)); 
 figure(); clf;
 image(spatialSupportX, spatialSupportY, RGBsettings);
 hold on;
