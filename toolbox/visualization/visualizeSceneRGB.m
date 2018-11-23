@@ -15,8 +15,15 @@ set(gca, 'XTick', max(spatialSupportX)*[-1 -0.5 0 0.5 1]);
 set(gca, 'YTick', max(spatialSupportY)*[-1 -0.5 0 0.5 1]);
 xlabel(sprintf('\\it space (%s)', spatialSupportUnits));
 ylabel(sprintf('\\it space (%s)', spatialSupportUnits));
-title(sprintf('%s\nmean luminance: %2.1f cd/m2;\nmean chroma: (%2.3f,%2.3f)', ...
-    sceneName, meanLuminance, meanChromaticity(1), meanChromaticity(2)))
+
+% Label plot
+if (isempty(meanLuminance))
+    title(sprintf('%s\nmean chroma: (%2.3f,%2.3f)', ...
+        sceneName, meanChromaticity(1), meanChromaticity(2)));
+else
+    title(sprintf('%s\nmean luminance: %2.1f cd/m2;\nmean chroma: (%2.3f,%2.3f)', ...
+        sceneName, meanLuminance, meanChromaticity(1), meanChromaticity(2)));
+end
 set(gca, 'FontSize', 16);
 drawnow;
 end
