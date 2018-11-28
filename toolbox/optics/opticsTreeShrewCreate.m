@@ -19,7 +19,7 @@ p.addParameter('opticsType', 'gaussian psf', @ischar);
 p.addParameter('inFocusPSFsigmaMicrons', 20, @isnumeric);
 p.addParameter('pupilDiameterMM', 4, @isnumeric);
 p.addParameter('wavelengthSupport', 400:10:700, @isnumeric);
-p.addParameter('maxSF', 4.0, @isnumeric);
+p.addParameter('maxSF', 5.0, @isnumeric);
 p.addParameter('deltaSF', 0.02, @isnumeric);
 p.addParameter('anteriorFocalLengthMM', 4.35, @isnumeric);
 p.addParameter('posteriorNodalDistanceMM', 3.49, @isnumeric);
@@ -39,8 +39,11 @@ posteriorNodalDistanceMM = p.Results.posteriorNodalDistanceMM;
 
 % Compute diotric power (not used), focalLength, and micronsPerDeg
 focalLengthMeters = anteriorFocalLengthMM / 1000;
-dioptricPower = 1 / focalLengthMeters
-micronsPerDegree = posteriorNodalDistanceMM * 1000 * tan(1 / 180 * pi)
+dioptricPower = 1 / focalLengthMeters;
+micronsPerDegree = posteriorNodalDistanceMM * 1000 * tan(1 / 180 * pi);
+
+% Brute force setting microns per degree
+optics.micronsPerDegree = micronsPerDegree;
 
 optics.type = 'optics';
 optics.name = 'TreeShrew';
