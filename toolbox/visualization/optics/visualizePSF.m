@@ -22,7 +22,7 @@ plot(xSupportMinutes, psfSlice*psfRange*2-psfRange, 'c-', 'LineWidth', 4.0);
 plot(xSupportMinutes, psfSlice*psfRange*2-psfRange, 'b-', 'LineWidth', 1.0);
 axis 'image'; axis 'xy';
 set(gca, 'XLim', psfRange*1.05*[-1 1], 'YLim', psfRange*1.05*[-1 1], 'CLim', [0 1], ...
-            'XTick', [-100:10:100], 'YTick', [-100:10:100]);
+            'XTick', [-100:20:100], 'YTick', [-100:20:100]);
 set(gca, 'FontSize', 16, 'XColor', [0 0 0], 'YColor', [0 0 0], 'Color', [0 0 0]);
 xlabel('\it space (microns)');
 set(gca, 'FontSize', 16);
