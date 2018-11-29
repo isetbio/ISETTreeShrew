@@ -26,7 +26,6 @@ if (any(sceneRGBPrimaries(:)<0.0))
     sceneRGBPrimaries(sceneRGBPrimaries<0.0) = 0;
     fprintf('Primaries range: %2.2f - %2.2f\n', ...
     min(sceneRGBPrimaries(:)), max(sceneRGBPrimaries(:)));
-
 end
 
 % Extract inverse gamma table 
@@ -37,8 +36,6 @@ inverseGammaTable = inverseGammaTable/max(inverseGammaTable(:));
 % Pass linear RGB primaries via inverse gamma to generate the display
 % settings values
 sceneSettings = ieLUTLinear(sceneRGBPrimaries, inverseGammaTable);
-    
-
  
 % Generate a scene based on these RGB settings
 meanLuminance = [];

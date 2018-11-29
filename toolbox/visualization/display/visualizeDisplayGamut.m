@@ -7,10 +7,13 @@ xChroma = primariesXYZ(:,1) ./ sum(primariesXYZ,2);
 yChroma = primariesXYZ(:,2) ./ sum(primariesXYZ,2);
 
 figure(); clf;
+% Plot the (x,y) coords of the RGB guns
 plot(xChroma(1), yChroma(1), 'rs', 'MarkerSize', 14, 'MarkerFaceColor', [1 0.5 0.5]); hold on
 plot(xChroma(2), yChroma(2), 'gs', 'MarkerSize', 14, 'MarkerFaceColor', [0.5 1 0.5]);
 plot(xChroma(3), yChroma(3), 'bs', 'MarkerSize', 14, 'MarkerFaceColor', [0.5 0.5 1]);
-renderCIEdiagram();
+% Plot the CIE (xy) background 
+renderCIEdiagramBackground();
+% Replot the (x,y) cords of the RGB guns
 plot(xChroma(1), yChroma(1), 'rs', 'MarkerSize', 14, 'MarkerFaceColor', [1 0.8 0.5]); 
 plot(xChroma(2), yChroma(2), 'gs', 'MarkerSize', 14, 'MarkerFaceColor', [0.5 1 0.5]);
 plot(xChroma(3), yChroma(3), 'bs', 'MarkerSize', 14, 'MarkerFaceColor', [0.5 0.7 1]);
@@ -25,7 +28,8 @@ legend({...
 title('display gamut')
 end
 
-function renderCIEdiagram()
+function renderCIEdiagramBackground()
+% Method to render the shoe-horse shaped CIE color background
 wave = 420:5:700;
 XYZcolorMatchingFunctions = ieReadSpectra('XYZ', wave);
 xOutline = XYZcolorMatchingFunctions(:,1)./sum(XYZcolorMatchingFunctions,2);
