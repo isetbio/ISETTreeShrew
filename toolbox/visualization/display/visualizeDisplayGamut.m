@@ -29,7 +29,7 @@ title('display gamut')
 end
 
 function renderCIEdiagramBackground()
-% Method to render the shoe-horse shaped CIE color background
+% Method to render the shoe-horse CIE color background
 wave = 420:5:700;
 XYZcolorMatchingFunctions = ieReadSpectra('XYZ', wave);
 xOutline = XYZcolorMatchingFunctions(:,1)./sum(XYZcolorMatchingFunctions,2);
