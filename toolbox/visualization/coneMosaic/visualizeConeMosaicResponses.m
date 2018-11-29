@@ -1,25 +1,32 @@
 function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
     
+    figure(); clf;
     subplotRows = 2;
-    subplotCols = 2;
+    subplotCols = 3;
     subplotPosVectors = NicePlot.getSubPlotPosVectors(...
        'rowsNum', subplotRows, ...
        'colsNum', subplotCols, ...
-       'heightMargin',  0.06, ...
-       'widthMargin',    0.05, ...
-       'leftMargin',     0.07, ...
-       'rightMargin',    0.03, ...
-       'bottomMargin',   0.15, ...
-       'topMargin',      0.1);
+       'heightMargin',  0.01, ...
+       'widthMargin',    0.02, ...
+       'leftMargin',     0.02, ...
+       'rightMargin',    0.12, ...
+       'bottomMargin',   0.04, ...
+       'topMargin',      0.01);
 
     instancesNum = size(coneExcitations,1);
     visualizedTrialsNum = min([subplotRows*subplotCols, instancesNum]);
     
-    for k = 1:visualizedTrialsNum-1
-        r = floor((k-1)/subplotCols)+1;
-        c = mod(k-1,subplotCols)+1;
-        axHandle = subplot('Position', subplotPosVectors(r,c).v);
-        if (k == 1)
+    axHandle = subplot('Position', subplotPosVectors(1,1).v);
+    coneMosaic.visualizeGrid(...
+        'axesHandle', axHandle, ...
+        'displayVisualDegs', true);
+    set(gca, 'FontSize', 12, 'YTickLabel', {});
+    xlabel('space (degs)')
+    ylabel('');
+    
+    for k = 1:2
+        axHandle = subplot('Position', subplotPosVectors(1,k+1).v);
+        if (k == 2)
             coneMosaic.renderActivationMap(axHandle, squeeze(coneExcitations(k,:,:)), ...
                 'mapType', 'modulated disks', ...
                 'signalRange', [0 max(coneExcitations(:))], ...
@@ -33,12 +40,12 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
                 'showColorBar', ~true, ...
                 'labelColorBarTicks', ~true);
         end
-        if (c>1)
-        	set(gca, 'YTickLabel', {});
-            ylabel('');
-        end
-        xlabel(''); set(gca, 'XTickLabel', {});
-        set(gca, 'FontSize', 14);
+        ylabel(''); set(gca, 'YTickLabel', {});
+        
+        xlabel('');
+        set(gca, 'XTickLabel', {});
+        
+        set(gca, 'FontSize', 12);
         title(sprintf('trial #%d', k));
     end
     
@@ -53,7 +60,7 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
     end
     
     % Plot the excitations separately for L-,M- and S-cones
-    subplot('Position', subplotPosVectors(subplotRows,subplotCols).v);
+    subplot('Position', [0.15 0.1 0.7 0.33]);
     idx = find(typesOfConesAlongXaxis == 2);
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'r.');
     hold on;
@@ -61,12 +68,12 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'g.');
     idx = find(typesOfConesAlongXaxis == 4);
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'b.');
-    axis 'square'
     grid on
     set(gca, 'FontSize', 14, 'YTick', [0:25:200], 'XTick', [-0.3:0.1:0.3]);
+    set(gca, 'YLim', [0 max(coneExcitations(:))]);
     xlabel('\it space (degs)');
     ylabel(sprintf('\\it R*/cone/%2.0fms', coneMosaic.integrationTime*1000));
-    title(sprintf('%d trials', instancesNum));
+    title(sprintf('%d trials, cones along horizontal meridian', instancesNum));
 end
 
 function [indicesOfConesAlongXaxis,coneXcoordsAlongXaxis, theConeTypes] = indicesOfConesAlongHorizontalMeridian(theMosaic)
