@@ -19,7 +19,7 @@ p.addParameter('opticsType', 'gaussian psf', @ischar);
 p.addParameter('inFocusPSFsigmaMicrons', 20, @isnumeric);
 p.addParameter('pupilDiameterMM', 4, @isnumeric);
 p.addParameter('wavelengthSupport', 400:10:700, @isnumeric);
-p.addParameter('maxSF', 5.0, @isnumeric);
+p.addParameter('maxSF', 10.0, @isnumeric);
 p.addParameter('deltaSF', 0.02, @isnumeric);
 p.addParameter('anteriorFocalLengthMM', 4.35, @isnumeric);
 p.addParameter('posteriorFocalLengthMM', 5.81, @isnumeric);
