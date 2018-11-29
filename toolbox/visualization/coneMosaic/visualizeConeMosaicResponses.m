@@ -62,18 +62,22 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
     % Plot the excitations separately for L-,M- and S-cones
     subplot('Position', [0.15 0.1 0.7 0.33]);
     idx = find(typesOfConesAlongXaxis == 2);
+    LconesNum = numel(idx);
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'r.');
     hold on;
     idx = find(typesOfConesAlongXaxis == 3);
+    MconesNum = numel(idx);
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'g.');
     idx = find(typesOfConesAlongXaxis == 4);
+    SconesNum = numel(idx);
     plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'b.');
     grid on
     set(gca, 'FontSize', 14, 'YTick', [0:25:200], 'XTick', [-0.3:0.1:0.3]);
     set(gca, 'YLim', [0 max(coneExcitations(:))]);
     xlabel('\it space (degs)');
     ylabel(sprintf('\\it R*/cone/%2.0fms', coneMosaic.integrationTime*1000));
-    title(sprintf('%d trials, cones along horizontal meridian', instancesNum));
+    title(sprintf('%d trials, responses of %d L- %d M- and %d-S cones (along the horiz. meridian)', ...
+        instancesNum, LconesNum, MconesNum, SconesNum), 'FontWeight', 'Normal', 'FontSize', 10);
 end
 
 function [indicesOfConesAlongXaxis,coneXcoordsAlongXaxis, theConeTypes] = indicesOfConesAlongHorizontalMeridian(theMosaic)
