@@ -11,7 +11,7 @@ function optics = opticsTreeShrewCreate(varargin)
 % From "Normal development of refractive state and ocular component dimensions 
 % in the tree shrew (Tupaia belangeri)", by Thomas T. Norton, Neville A. McBrien, 1992
 % anteriorFocalLengthMM = 4.35;
-% posteriorNodalDistanceMM = 3.49;
+% posteriorFocalLengthMM = 5.81;
 %
 
 p = inputParser;
@@ -22,7 +22,7 @@ p.addParameter('wavelengthSupport', 400:10:700, @isnumeric);
 p.addParameter('maxSF', 5.0, @isnumeric);
 p.addParameter('deltaSF', 0.02, @isnumeric);
 p.addParameter('anteriorFocalLengthMM', 4.35, @isnumeric);
-p.addParameter('posteriorNodalDistanceMM', 3.49, @isnumeric);
+p.addParameter('posteriorFocalLengthMM', 5.81, @isnumeric);
 
 % Parse input
 p.parse(varargin{:});
@@ -35,12 +35,12 @@ opticsType = p.Results.opticsType;
 deltaSF = p.Results.deltaSF;
 maxSF = p.Results.maxSF;
 anteriorFocalLengthMM = p.Results.anteriorFocalLengthMM;
-posteriorNodalDistanceMM = p.Results.posteriorNodalDistanceMM;
+posteriorFocalLengthMM = p.Results.posteriorFocalLengthMM;
 
 % Compute diotric power (not used), focalLength, and micronsPerDeg
 focalLengthMeters = anteriorFocalLengthMM / 1000;
 dioptricPower = 1 / focalLengthMeters;
-micronsPerDegree = posteriorNodalDistanceMM * 1000 * tan(1 / 180 * pi);
+micronsPerDegree = posteriorFocalLengthMM * 1000 * tand(1);
 
 % Brute force setting microns per degree
 optics.micronsPerDegree = micronsPerDegree;
@@ -60,7 +60,8 @@ end % switch lower(opticsType)
 % Set the focal length
 optics = opticsSet(optics, 'focalLength', focalLengthMeters);
 
-% Set the f-Number
+% Set the f-Number. Not sure if we should use the anteriorFocalLengthMM or
+% the posteriorFocalLengthMM here. Using the anterior for now.
 optics = opticsSet(optics, 'fnumber', focalLengthMeters*1000/pupilDiameterMM);
     
 % No lens absorption for now (density = 0)
