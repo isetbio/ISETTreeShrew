@@ -51,7 +51,7 @@ p.addParameter('presentationDisplay', [], @validateDisplayArgument);
 p.parse(varargin{:});
 
 presentationDisplay = p.Results.presentationDisplay;
-stimParams = defaultStimParams;
+stimParams = p.Results.stimParams;
 
 if (~isempty(presentationDisplay))
     stimParams = updateStimParamsForDisplay(stimParams, presentationDisplay);

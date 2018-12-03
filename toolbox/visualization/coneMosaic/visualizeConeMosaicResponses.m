@@ -49,7 +49,7 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
         title(sprintf('trial #%d', k));
     end
     
-    % Rertieve indices of cones along horizontal meridian
+    % Retrieve indices of cones along horizontal meridian
     [indicesOfConesAlongXaxis, xCoordsOfConesAlongXaxis, typesOfConesAlongXaxis] = indicesOfConesAlongHorizontalMeridian(coneMosaic);
 
     % Extract the excitations of cones along horizontal meridian
