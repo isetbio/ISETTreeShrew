@@ -1,5 +1,46 @@
-function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
+function visualizeConeMosaicResponses(coneMosaic, responses, responseSignalName)
     
+    if (ndims(responses) == 4)
+        meanResponse = squeeze(mean(responses, 1));
+        meanResponse = bsxfun(@minus, meanResponse, squeeze(meanResponse(:,:,1)));
+        [~,idx] = max(abs(meanResponse(:)));
+        [rowConeOfPeakResponse,colConeOfPeakResponse,timePointOfPeakResponse] = ...
+            ind2sub(size(meanResponse), idx);
+        patternSupport = coneMosaic.patternSupport;
+        peakConePositionMicrons = [...
+            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,1)*1e6 ...
+            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,2)*1e6];
+        
+        singleConeTemporalResponse = squeeze(...
+            responses(:,rowConeOfPeakResponse,...
+            colConeOfPeakResponse,:));
+        
+        timeAxis = coneMosaic.timeAxis;
+        visualizePeakConeResponseInTime(timeAxis, singleConeTemporalResponse, responseSignalName, peakConePositionMicrons);
+        
+        % Visualize cone mosaic response at the peak time
+        responses = squeeze(responses(:,:,:,timePointOfPeakResponse));
+        time = timeAxis(timePointOfPeakResponse);
+    else
+        time = 0;
+    end
+    
+    responseRange = [min(responses(:)) max(responses(:))];
+    visualize2DResponseAtASingleTimePoint(coneMosaic, responses, responseRange, responseSignalName, time);
+end
+
+function visualizePeakConeResponseInTime(timeAxis, peakConeTemporalResponses, signalName, peakConePositionMicrons)
+    figure(); clf;
+    plot(timeAxis, peakConeTemporalResponses, 'k-');
+    hold on;
+    plot(timeAxis, mean(peakConeTemporalResponses,1), 'g-', 'LineWidth', 1.5);
+    xlabel('\it time (seconds)');
+    ylabel(sprintf('\\it %s', signalName));
+    title(sprintf('Cone at %2.2f, %2.2f microns', peakConePositionMicrons(1),peakConePositionMicrons(2)));
+    set(gca, 'FontSize', 14);
+end
+
+function visualize2DResponseAtASingleTimePoint(coneMosaic, responses, responseRange, responseSignalName, responseTime)
     figure(); clf;
     subplotRows = 2;
     subplotCols = 3;
@@ -13,7 +54,7 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
        'bottomMargin',   0.04, ...
        'topMargin',      0.01);
 
-    instancesNum = size(coneExcitations,1);
+    instancesNum = size(responses,1);
     visualizedTrialsNum = min([subplotRows*subplotCols, instancesNum]);
     
     axHandle = subplot('Position', subplotPosVectors(1,1).v);
@@ -27,16 +68,16 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
     for k = 1:2
         axHandle = subplot('Position', subplotPosVectors(1,k+1).v);
         if (k == 2)
-            coneMosaic.renderActivationMap(axHandle, squeeze(coneExcitations(k,:,:)), ...
+            coneMosaic.renderActivationMap(axHandle, squeeze(responses(k,:,:)), ...
                 'mapType', 'modulated disks', ...
-                'signalRange', [0 max(coneExcitations(:))], ...
+                'signalRange', responseRange, ...
                 'showColorBar', true, ...
                 'labelColorBarTicks', true, ...
-                'titleForColorBar', sprintf('R*/cone/%2.0fms', coneMosaic.integrationTime*1000));
+                'titleForColorBar', responseSignalName);
         else 
-            coneMosaic.renderActivationMap(axHandle, squeeze(coneExcitations(k,:,:)), ...
+            coneMosaic.renderActivationMap(axHandle, squeeze(responses(k,:,:)), ...
                 'mapType', 'modulated disks', ...
-                'signalRange', [0 max(coneExcitations(:))], ...
+                'signalRange', responseRange, ...
                 'showColorBar', ~true, ...
                 'labelColorBarTicks', ~true);
         end
@@ -46,36 +87,36 @@ function visualizeConeMosaicResponses(coneMosaic, coneExcitations)
         set(gca, 'XTickLabel', {});
         
         set(gca, 'FontSize', 12);
-        title(sprintf('trial #%d', k));
+        title(sprintf('trial #%d (t: %2.2f sec)', k, responseTime));
     end
     
     % Retrieve indices of cones along horizontal meridian
     [indicesOfConesAlongXaxis, xCoordsOfConesAlongXaxis, typesOfConesAlongXaxis] = indicesOfConesAlongHorizontalMeridian(coneMosaic);
 
     % Extract the excitations of cones along horizontal meridian
-    coneExcitations = reshape(coneExcitations, [instancesNum  size(coneExcitations,2)* size(coneExcitations,3)]);
-    coneExcitationsNxXY = zeros(instancesNum, numel(indicesOfConesAlongXaxis));
+    responses = reshape(responses, [instancesNum  size(responses,2)* size(responses,3)]);
+    responsesNxXY = zeros(instancesNum, numel(indicesOfConesAlongXaxis));
     for k = 1:numel(indicesOfConesAlongXaxis)
-        coneExcitationsNxXY(:,k) = coneExcitations(:,indicesOfConesAlongXaxis(k));
+        responsesNxXY(:,k) = responses(:,indicesOfConesAlongXaxis(k));
     end
     
     % Plot the excitations separately for L-,M- and S-cones
     subplot('Position', [0.15 0.1 0.7 0.33]);
     idx = find(typesOfConesAlongXaxis == 2);
     LconesNum = numel(idx);
-    plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'r.');
+    plot(xCoordsOfConesAlongXaxis(idx), responsesNxXY(:,idx), 'r.');
     hold on;
     idx = find(typesOfConesAlongXaxis == 3);
     MconesNum = numel(idx);
-    plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'g.');
+    plot(xCoordsOfConesAlongXaxis(idx), responsesNxXY(:,idx), 'g.');
     idx = find(typesOfConesAlongXaxis == 4);
     SconesNum = numel(idx);
-    plot(xCoordsOfConesAlongXaxis(idx), coneExcitationsNxXY(:,idx), 'b.');
+    plot(xCoordsOfConesAlongXaxis(idx), responsesNxXY(:,idx), 'b.');
     grid on
-    set(gca, 'FontSize', 14, 'YTick', [0:25:200], 'XTick', [-0.3:0.1:0.3]);
-    set(gca, 'YLim', [0 max(coneExcitations(:))]);
+    set(gca, 'FontSize', 14, 'XTick', [-0.3:0.1:0.3]);
+    set(gca, 'YLim', responseRange);
     xlabel('\it space (degs)');
-    ylabel(sprintf('\\it R*/cone/%2.0fms', coneMosaic.integrationTime*1000));
+    ylabel(sprintf('\\it %s', responseSignalName));
     title(sprintf('%d trials, responses of %d L- %d M- and %d-S cones (along the horiz. meridian)', ...
         instancesNum, LconesNum, MconesNum, SconesNum), 'FontWeight', 'Normal', 'FontSize', 10);
 end
