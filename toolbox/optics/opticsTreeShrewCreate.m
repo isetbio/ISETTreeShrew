@@ -60,10 +60,6 @@ optics = opticsSet(optics, 'focalLength', focalLengthMeters);
 
 % Set the f-Number.
 optics = opticsSet(optics, 'fnumber', focalLengthMeters*1000/pupilDiameterMM);
-    
-% No lens absorption for now (density = 0)
-optics.lens = Lens('wave', wavelengthSupport);
-optics.lens.density = 0; 
 
 % Default computational settings for the optical image
 optics = opticsSet(optics, 'offAxisMethod', 'cos4th');
