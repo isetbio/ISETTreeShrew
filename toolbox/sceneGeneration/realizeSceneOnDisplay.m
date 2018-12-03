@@ -1,6 +1,27 @@
 function realizedScene = realizeSceneOnDisplay(scene, display)
-% Method to generate an ISETBio scene that describes the realization of an
-% input scene on a particular display.
+% Method to generate an ISETBio scene as realized on the passed display
+%
+% Syntax:
+%   realizedScene = realizeSceneOnDisplay(scene, display)
+%
+% Description:
+%    This function uses an idealized ISETBio scene, in which radiance can be 
+%    specified independently at each wavelength, and generates a metameric
+%    ISETBio scene that can be realized on the passed display. The two
+%    scenes have the same luminance and chromaticity, but differ in the
+%    spectral radiance composition, as the latter scene is generated based
+%    on the spectral power distributions of the passed display's primaries.
+%
+% Inputs:
+%   scene:        - The input ISETBio scene 
+%   display:      - The display on which the input scene is to be realized
+%
+% Outputs:
+%   realizedScene - The ISETBio scene corresponding to the realized scene
+%                   on the passed display.
+%
+% History:
+%    11/23/18  NPC  ISETBIO TEAM, 2018
 
 % Extract the input scene's XYZ components
 sceneXYZ = sceneGet(scene, 'xyz');
