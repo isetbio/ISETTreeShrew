@@ -1,15 +1,19 @@
 function visualizeConeMosaicResponses(coneMosaic, responses, responseSignalName)
     
     if (ndims(responses) == 4)
+        % Compute the mean differential response
         meanResponse = squeeze(mean(responses, 1));
-        meanResponse = bsxfun(@minus, meanResponse, squeeze(meanResponse(:,:,1)));
-        [~,idx] = max(meanResponse(:));
+        meanDiffResponse = bsxfun(@minus, meanResponse, squeeze(meanResponse(:,:,1)));
+        % Find peak cone position and peak response time based on mean
+        % differential reseponse
+        [~,idx] = max(meanDiffResponse(:));
         [rowConeOfPeakResponse,colConeOfPeakResponse,timePointOfPeakResponse] = ...
             ind2sub(size(meanResponse), idx);
+        
         patternSupport = coneMosaic.patternSupport;
         peakConePositionMicrons = [...
-            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,1)*1e6 ...
-            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,2)*1e6];
+            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,1) ...
+            patternSupport(rowConeOfPeakResponse,colConeOfPeakResponse,2)] * 1e6;
         
         singleConeTemporalResponse = squeeze(...
             responses(:,rowConeOfPeakResponse,...
@@ -21,11 +25,13 @@ function visualizeConeMosaicResponses(coneMosaic, responses, responseSignalName)
         % Visualize cone mosaic response at the peak time
         responses = squeeze(responses(:,:,:,timePointOfPeakResponse));
         time = timeAxis(timePointOfPeakResponse);
+        responseRange = [min(meanResponse(:)) max(meanResponse(:))];
     else
         time = 0;
+        responseRange = [min(responses(:)) max(responses(:))];
     end
     
-    responseRange = [min(responses(:)) max(responses(:))];
+   
     visualize2DResponseAtASingleTimePoint(coneMosaic, responses, responseRange, responseSignalName, time);
 end
 
