@@ -34,6 +34,18 @@ function oi = oiTreeShrewCreate(varargin)
         oi.optics = rmfield(oi.optics, 'transmittance');
     end  
     
+    % TreeShrew lens absorption.
+    theTreeShrewLens = treeShrewLens(oiGet(oi, 'optics wave'));
+    
+    % Update the oi.lens
+    oi = oiSet(oi, 'lens', theTreeShrewLens);
+    
+    % Set the same lens in the optics structure too
+    oi.optics.lens = theTreeShrewLens;
+end
+
+% Method to generate a Lens object with treeshrew - based optical density
+function theTreeShrewLens = treeShrewLens(targetWavelenth)
     % TreeShrew lens absorption. Start with the human lens.
     theTreeShrewLens = Lens();
     
@@ -41,19 +53,9 @@ function oi = oiTreeShrewCreate(varargin)
     load('treeshrewLensAbsorbance.mat', 'wavelength', 'data');
     
     % Interpolate to optics wavelength support
-    targetWavelenth = oiGet(oi, 'optics wave');
     unitDensity = interp1(wavelength,data,targetWavelenth, 'pchip');
     
     % Update the lens
     set(theTreeShrewLens,'wave', targetWavelenth);
     set(theTreeShrewLens,'unitDensity',unitDensity);
-    
-    % Give it appropriate name
-    set(theTreeShrewLens,'name', 'treeshrew lens');
-    
-    % Update the oi.lens
-    oi = oiSet(oi, 'lens', theTreeShrewLens);
-    
-    % Set the same lens in the optics structure too
-    oi.optics.lens = theTreeShrewLens;
 end

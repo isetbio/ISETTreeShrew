@@ -1,4 +1,10 @@
-function visualizeScene(scene)
+function visualizeScene(scene, varargin)
+p = inputParser;
+p.addParameter('displayContrastProfiles', false, @islogical);
+% Parse input
+p.parse(varargin{:});
+displayContrastProfiles = p.Results.displayContrastProfiles;
+
 
 % retrieve the spatial support of the scene(in millimeters)
 spatialSupportMilliMeters = sceneGet(scene, 'spatial support', 'mm');
@@ -23,6 +29,13 @@ scenePhotonRate = sceneGet(scene, 'photons');
 % Retrieve wavelength support
 wavelengthSupport = sceneGet(scene, 'wave');
 wavelengthBandsToVisualize = 400:30:700;
+
+% Visualize radiance maps
 visualizeSceneRadiance(spatialSupportMilliMeters, 'mm', ...
     scenePhotonRate, wavelengthSupport, wavelengthBandsToVisualize);
+
+if (displayContrastProfiles)
+    visualizeSceneRadiance(spatialSupportMilliMeters, 'mm', ...
+    scenePhotonRate, wavelengthSupport, wavelengthBandsToVisualize, ...
+    'contrastProfilesOnly', true); 
 end
