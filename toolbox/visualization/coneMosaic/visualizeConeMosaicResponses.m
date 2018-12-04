@@ -3,7 +3,7 @@ function visualizeConeMosaicResponses(coneMosaic, responses, responseSignalName)
     if (ndims(responses) == 4)
         meanResponse = squeeze(mean(responses, 1));
         meanResponse = bsxfun(@minus, meanResponse, squeeze(meanResponse(:,:,1)));
-        [~,idx] = max(abs(meanResponse(:)));
+        [~,idx] = max(meanResponse(:));
         [rowConeOfPeakResponse,colConeOfPeakResponse,timePointOfPeakResponse] = ...
             ind2sub(size(meanResponse), idx);
         patternSupport = coneMosaic.patternSupport;
