@@ -15,42 +15,42 @@ function optics = opticsTreeShrewCreate(varargin)
 %
 
 p = inputParser;
+p.addParameter('name', '', @ischar);
 p.addParameter('opticsType', 'gaussian psf', @ischar);
 p.addParameter('inFocusPSFsigmaMicrons', 20, @isnumeric);
 p.addParameter('pupilDiameterMM', 4, @isnumeric);
 p.addParameter('wavelengthSupport', 400:10:700, @isnumeric);
 p.addParameter('maxSF', 10.0, @isnumeric);
 p.addParameter('deltaSF', 0.02, @isnumeric);
-p.addParameter('anteriorFocalLengthMM', 4.35, @isnumeric);
+p.addParameter('focalLengthMM', 4.35, @isnumeric);
 
 % Parse input
 p.parse(varargin{:});
 
 % Set params
+opticsName = p.Results.name;
 inFocusPSFsigmaMicrons = p.Results.inFocusPSFsigmaMicrons;
 pupilDiameterMM = p.Results.pupilDiameterMM;
 wavelengthSupport = p.Results.wavelengthSupport;
 opticsType = p.Results.opticsType;
 deltaSF = p.Results.deltaSF;
 maxSF = p.Results.maxSF;
-anteriorFocalLengthMM = p.Results.anteriorFocalLengthMM;
+focalLengthMM= p.Results.focalLengthMM;
 
 % Compute microns per degree
-focalLengthMeters = anteriorFocalLengthMM / 1000;
-posteriorFocalPoint = 7.84;
-posteriorNodalPoint = 3.49;
-posteriorNodalDistanceMM = posteriorFocalPoint - posteriorNodalPoint;
+focalLengthMeters = focalLengthMM / 1000;
+posteriorNodalDistanceMM = focalLengthMM;
 micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 optics.micronsPerDegree = micronsPerDegree;
 
 optics.type = 'optics';
-optics.name = 'TreeShrew';
+optics.name = opticsName;
 optics = opticsSet(optics, 'model', 'shiftInvariant');
 
 switch lower(opticsType)
     case {'gaussian psf'}
         optics = opticsWithGaussianPSF(optics, inFocusPSFsigmaMicrons, ...
-            micronsPerDegree, maxSF, deltaSF, wavelengthSupport);
+            maxSF, deltaSF, wavelengthSupport);
     otherwise
         error('Unknown optics type: ''%s''.', opticsType)
 end % switch lower(opticsType)
@@ -61,15 +61,15 @@ optics = opticsSet(optics, 'focalLength', focalLengthMeters);
 % Set the f-Number.
 optics = opticsSet(optics, 'fnumber', focalLengthMeters*1000/pupilDiameterMM);
 
-% Default computational settings for the optical image
-optics = opticsSet(optics, 'offAxisMethod', 'cos4th');
+% no off-axis attenuation
+optics = opticsSet(optics, 'offAxisMethod', 'skip');
 
 % Pixel vignetting is off
 optics.vignetting =  0;
 end
 
 
-function optics = opticsWithGaussianPSF(optics, psfSigmaMicrons, micronsPerDegree, maxSF, deltaSF, wavelengthSupport)
+function optics = opticsWithGaussianPSF(optics, psfSigmaMicrons, maxSF, deltaSF, wavelengthSupport)
     % Generate spatial frequency support
     N = maxSF/deltaSF;
     fList = unitFrequencyList(N);  % Should we add fList(end+1) = -fList(1) ?? (NPC)
@@ -79,7 +79,7 @@ function optics = opticsWithGaussianPSF(optics, psfSigmaMicrons, micronsPerDegre
     fSupportCyclesPerDeg(:, :, 2) = ySfGridCyclesDeg;
     
     % Compute the sigma of the PSF in minutes of arc, 1 deg = 60 minutes or arc
-    psfSigmaMinutes = psfSigmaMicrons / micronsPerDegree * 60;
+    psfSigmaMinutes = psfSigmaMicrons / optics.micronsPerDegree * 60;
     
     % Generate the 2D OTF (single wavelength) based on a Gaussian PSF
     theOTF = otfFromGaussianPSF(psfSigmaMinutes, fSupportCyclesPerDeg);
@@ -92,7 +92,8 @@ function optics = opticsWithGaussianPSF(optics, psfSigmaMicrons, micronsPerDegre
     end
     
     % Compute OTF frequency support in cycles/mm
-    fSupportCyclesPerMM = fSupportCyclesPerDeg * (1 / (micronsPerDegree * 1e-3));
+    mmPerDegree = optics.micronsPerDegree * 1e-3;
+    fSupportCyclesPerMM = fSupportCyclesPerDeg / mmPerDegree;
     fxCyclesPerMM = fSupportCyclesPerMM(1, :, 1);
     fyCyclesPerMM = fSupportCyclesPerMM(:, 1, 2);
     
