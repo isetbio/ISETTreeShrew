@@ -55,12 +55,16 @@ function computeMosaicResponses
     
     nRepeats = 1;
     
-    if (1==2)
+    doHumanComputation = ~false;
+    doTreeShrewComputation = ~true;
+    
+    if (doHumanComputation)
     tic
     
     for repeat = 1:nRepeats
-        fprintf('%d/%d\n', repeat,nRepeats);
+        fprintf('processing batch %d/%d\n', repeat,nRepeats);
         for imIndex = 1:numel(sceneArray)
+            fprintf('\t processing image %d \ %d\n', imIndex, numel(sceneArray));
             % Compute the retinal image
             oiArrayHuman{imIndex} = oiCompute(theHumanOI, sceneArray{imIndex});
             % Compute mosaic excitation
@@ -87,13 +91,17 @@ function computeMosaicResponses
         end % inIndex
     end
     fprintf('Human computation: %f\n', toc/4/nRepeats);
+    fprintf('Rendering human figure. This will take a long time\n');
+    renderFigure(20, inputImageArray, sceneArray, oiArrayHuman, coneExcitationArrayHuman, theHumanConeMosaic);
     end
     
     
+    if (doTreeShrewComputation)
     tic
     for repeat = 1:nRepeats
-        fprintf('%d/%d\n', repeat,nRepeats);
+        fprintf('processing batch %d/%d\n', repeat,nRepeats);
         for imIndex = 1:numel(sceneArray)
+            fprintf('\t processing image %d \ %d\n', imIndex, numel(sceneArray));
             % Compute the retinal image
             oiArrayTreeShrew{imIndex} = oiCompute(theTreeShrewOI, sceneArray{imIndex});
             % Compute mosaic excitation
@@ -123,7 +131,7 @@ function computeMosaicResponses
     fprintf('TreeShrew computation: %f\n', toc/4/nRepeats);
     
     renderFigure(10, inputImageArray, sceneArray, oiArrayTreeShrew, coneExcitationArrayTreeShrew, theTreeShrewConeMosaic);
-    %renderFigure(20, inputImageArray, sceneArray, oiArrayHuman, coneExcitationArrayHuman, theHumanConeMosaic);
+    end
     
     
 end
