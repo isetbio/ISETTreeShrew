@@ -1,7 +1,37 @@
 function [inputImageArray, sceneArray] = preProcessImages(imDir, imFileNames, ...
     presentationDisplay, resampledImageSize, ...
-    resampledImageSizeVisualAngle, meanLuminanceCdPerM2)
-    
+    resampledImageSizeVisualAngle, meanLuminanceCdPerM2) 
+% Preprocess a set of LeMem images so as to generate ISETBio scenes
+%
+% Syntax:
+%   [inputImageArray, sceneArray] = preProcessImages(imDir, imFileNames, ...
+%    presentationDisplay, resampledImageSize, ...
+%    resampledImageSizeVisualAngle, meanLuminanceCdPerM2)
+%
+% Description:
+%    Preprocess a set of LeMem images so as to produce ISETBio scenes of
+%    these images as rendered on a particular display with a desired
+%    mean luminance and a desired spatial extent specificed as angular size
+%
+% Inputs:
+%    imDir                          String specificing the directory where the input RGB
+%                                   images are located
+%    imFileNames                    A cell array containing the names of the inputRGB images
+%                                   to be processed
+%    presentationDisplay            An ISETBIO display where images are to be rendered
+%    resampledImageSize             The resampled image size in pixels
+%    resampledImageSizeVisualAngle  The resampled image size in visual degrees
+%    meanLuminanceCdPerM2           The mean luminance of the generated ISETBIO scene
+%
+% Outputs:
+%    inputImageArray  A cell array where each entry is an input RGB image
+%    sceneArray       A cell array where each entry is the ISETBIO scene
+%                     corresponding to a different input image
+%   
+
+% History:
+%    12/12/2018  NPC   Wrote it
+
     
     mRows = resampledImageSize(1);
     nCols = resampledImageSize(2);
