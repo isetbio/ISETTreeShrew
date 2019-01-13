@@ -15,7 +15,7 @@ function renderInstancesVideo(figNo, imIndex, oiArray, coneExcitationArray, theC
 %    coneExcitationArray        Array with the cone mosaic responses to be visualized
 %    demosaicedExcitationArray  Array with the demosaiced cone responses to be visualized
 %    theConeMosaic              The employed cone mosaic
-%
+%    timeAxis                   The response time axis
 %
 % Outputs:
 %    None
@@ -69,10 +69,8 @@ function renderInstancesVideo(figNo, imIndex, oiArray, coneExcitationArray, theC
     xlabel('\it space (degs on retina)');
     title('retinal image');
 
-        
     axHandle = subplot('Position', subplotPosVectors(1,2).v);
     theConeExcitationsAllInstances = coneExcitationArray{imIndex};
-    
     
     %responseRange = prctile(theConeExcitationsAllInstances(:), [5 95]);
     responseRange = [min(theConeExcitationsAllInstances(:)) max(theConeExcitationsAllInstances(:))];
@@ -94,7 +92,7 @@ function renderInstancesVideo(figNo, imIndex, oiArray, coneExcitationArray, theC
 
         xlabel('\it space (degs on retina)');
         ylabel('');
-        title(sprintf('mosaic activation (%d ms)', 1000*timeAxis(tBin)));
+        title(sprintf('mosaic activation (%2.0f ms)', 1000*timeAxis(tBin)));
         drawnow;
         
         % Add video frame
