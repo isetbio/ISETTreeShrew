@@ -29,7 +29,7 @@ function hFig = renderOverviewFigure(figNo, inputImageArray, sceneArray, ...
 
     hFig = figure(figNo); 
     clf;
-    set(hFig, 'Position', [10 10 1450 1500], 'Color', [1 1 1]);
+    set(hFig, 'Position', [10 10 2440 1400], 'Color', [1 1 1]);
     
     subplotRows = numel(inputImageArray);
     if (numel(demosaicedExcitationArray) == 0)
@@ -48,7 +48,7 @@ function hFig = renderOverviewFigure(figNo, inputImageArray, sceneArray, ...
        'bottomMargin',   0.04, ...
        'topMargin',      0.01);
     
-    fontSize = 14;
+    fontSize = 20;
     ticksDegs = [-10:1:10];
     spatialRangeDegs = max(theConeMosaic.fov)/2*[-1 1];
     
@@ -174,7 +174,7 @@ function hFig = renderOverviewFigure(figNo, inputImageArray, sceneArray, ...
 
             ylabel('');
             if (imIndex==1)
-                title(sprintf('de-mosaiced\nL-cone activation'));
+                title(sprintf('L-cone activation (demosaiced)'));
             end
         
             % The demosaiced S-cone excitation
@@ -194,7 +194,7 @@ function hFig = renderOverviewFigure(figNo, inputImageArray, sceneArray, ...
 
             ylabel('');
             if (imIndex==1)
-                title(sprintf('de-mosaiced\nS-cone activation'));
+                title(sprintf('S-cone activation (demosaiced)'));
             end
         end
         

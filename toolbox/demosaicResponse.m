@@ -1,4 +1,4 @@
-function dStruct = demosaicResponse(theMosaicResponse, theConeMosaic, demosaicLatencySeconds, imageSizePixels)
+function dStruct = demosaicResponse(theMosaicResponse, theConeMosaic, demosaicLatencySeconds, imageSizePixels, interpolationMethod)
     
     dStruct = struct(...
         'theDemosaicedLconeIsomerizationMap', [], ...
@@ -25,7 +25,6 @@ function dStruct = demosaicResponse(theMosaicResponse, theConeMosaic, demosaicLa
         % Demosaic the mean response across all trials
         meanResponse = theConeMosaic.reshapeHex1DmapToHex2Dmap(squeeze(mean(theMosaicResponse(:,:,centerTimeBin),1)));
         
-        interpolationMethod = 'linear';  % 'linear' or 'nearest'
         demosaicingSampleSpacingMicrons = 1;
         
         % L-cone interpolation
