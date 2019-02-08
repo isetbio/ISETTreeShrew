@@ -22,11 +22,11 @@ for n = 1:max_multiplier
     
     % Default treeshrew optics, mult * 2.0 mm pupil
     %default FL = 4.35
-    focalLengthMM = sqrt(vector(1) * 4.35);
+    focalLengthMM = sqrt(vector(1)) * 4.35;
     
-    pupilDiameterMM = sqrt(vector(2) * 2.0);
+    pupilDiameterMM = sqrt(vector(2)) * 2.0;
     
-    innerSegmentDiameter = sqrt(vector(3) * 7.0);
+    innerSegmentDiameter = sqrt(vector(3)) * 7.0;
     
     switch find(v,n)
         case 1
