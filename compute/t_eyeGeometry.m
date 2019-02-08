@@ -4,15 +4,14 @@
 %   Animal Eyes and the sensitivity as determined by multiplying Illuminance 
 %   and Efficiency as determined through ISETBio
 
-max_multiplier = 5; %added in code that made it slightly harder to change this, 
-% as I currently define five labels specifically
+max_multiplier = 5; %how many data points to plot
 
 I = zeros(1,max_multiplier);
 E = zeros(1,max_multiplier);
 change_Vector = zeros(1,max_multiplier);
 s_AnimalEyes = zeros(1,max_multiplier);
 
-v = [0,0,1]; %%%% focal length^2 (mm^2), pupil area (mm^2), aperture area (um^2)
+v = [1,0,0]; %%%% focal length^2 (mm^2), pupil area (mm^2), aperture area (um^2)
 % for example, [1,0,0] will change focal length^2 and keep other variables
 % constant
 
@@ -31,9 +30,9 @@ for n = 1:max_multiplier
     switch find(v,n)
         case 1
             change_Vector(n) = focalLengthMM;
-            var = 'Focal Length';
-            var_1 = 'F';
-            units = 'mm';
+            var = 'Focal Length'; %for title of plot
+            var_1 = 'F'; %for labels of data points
+            units = 'mm'; %for labels of data points
         case 2
             change_Vector(n) = pupilDiameterMM;
             var = 'Pupil Diameter';
@@ -118,16 +117,15 @@ for n = 1:max_multiplier
     
     %E(n,1:3) = treeshrewSpectrallyIntegratedQuantalEfficiencies;
     
-    %integrate QE over mosaic (so, weight by cone occurance then sum)
+    %find average QE over mosaic (weight by cone occurance then average)
     E(n) = sum(cone_count.*treeshrewSpectrallyIntegratedQuantalEfficiencies) ...
         /sum(cone_count);
     
+    %Calculate estimated sensitivity according to Animal Eyes
     s_AnimalEyes(n) = 0.62 * (pupilDiameterMM^2 * innerSegmentDiameter^2)/ ...
         (focalLengthMM^2);
     
 end
-
-
 
 s_Iset = E.*I;
 x = s_AnimalEyes;
@@ -139,11 +137,10 @@ ylabel('Sensitivty (ISETBio)')
 title([{'Relationship Between ISETBIO and Animal Eyes Sensitivity'}, ...
     {sprintf('As %s Changes',var)}])
 
-labels = {sprintf('%s= %.2f %s', var_1, change_Vector(1), units), ...
-    sprintf('%s= %.2f %s', var_1, change_Vector(2), units), ...
-    sprintf('%s= %.2f %s', var_1 ,change_Vector(3), units), ...
-    sprintf('%s= %.2f %s', var_1, change_Vector(4), units) ...
-    sprintf('%s= %.2f %s', var_1, change_Vector(5), units)};
+labels = cell(1,max_multiplier);
+for i=1:max_multiplier
+labels(i) = cellstr(sprintf('%s= %.2f %s', var_1, change_Vector(i), units));
+end
 
 text(x,y,labels,'VerticalAlignment','bottom','HorizontalAlignment','right')
 
