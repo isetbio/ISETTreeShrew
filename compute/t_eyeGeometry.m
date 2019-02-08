@@ -47,14 +47,15 @@ deltaInnerSegmentDiameterUM = 3.0;
 v = [1,0,0];
 v = [0,0,1];
 
-% Specify cone densities similar to Peichl 1989 and set up a mosaic.
+% Specify cone densities similar to Peichl 1989 and set up a mosaic. Tree
+% shrew mosaic dominated by L cones, so  we'll approximate with only L cones.
 % For historical reasons, ISETBio parameters cone types in a vector
 % "black", L, M and S. Tree shrews have no M cones. 
 %
 % Variable whichConeType determines which cone type we'll use
 % to estimate isomerizations.  2 -> L, 3 -> M 4 -> S.  It would
 % be a bad idea to use M, since we specify a mosaic with no M cones.
-spatialLMSdensities = [0 .9 0 .1];
+spatialLMSdensities = [0 1 0 0];
 whichConeType = 2;
 
 % Size of mosaic in degrees.
@@ -132,8 +133,8 @@ for n = 1:nPointsToCompute
     % Get and store the retinal irradiance
     meanRetinalIlluminance(n) = oiGet(tOI, 'mean illuminance');
     
-    % Compute the mosaic responses
-    nTrialsNum = 3;
+    % Compute the mosaic responses (for more replicable responses, use more trials)
+    nTrialsNum = 1;
     emPath = zeros(nTrialsNum, 1, 2);
     
     % Compute *treeshrew* mosaic excitation responses to treeshrew optical image
@@ -142,40 +143,6 @@ for n = 1:nPointsToCompute
     % Find mean excitations
     tMosaicExcitationMean(n) = ...
         meanResponseToOpticalImage(tMosaic, tMosaicExcitation, whichConeType);
-%     
-%     wT = tMosaic.wave;
-%     tPigment = tMosaic.pigment;
-%     treeShrewAbsorbance = tPigment.absorbance;
-%     
-%     %.2f mmigure();
-%     %plotActionSpectra(wT, treeShrewAbsorbance, 'absorbance', 'treeshrew')
-%     
-%     axialDensities = tPigment.opticalDensity;
-%     treeShrewAxialAbsorbance = treeShrewAbsorbance * diag(axialDensities);
-%     
-%     treeShrewAbsorptance = 1 - 10 .^ (-treeShrewAxialAbsorbance);
-%     
-%     peakEfficiencies = tPigment.peakEfficiency;
-%     treeShrewQuantalEfficiency = treeShrewAbsorptance * diag(peakEfficiencies);
-%     
-%     treeShrewInnerSegmentArea = tPigment.pdArea*1e12;
-%     treeShrewIntegratedQuantalEfficiency = treeShrewQuantalEfficiency * ...
-%         treeShrewInnerSegmentArea;
-%     dWT = wT(2)-wT(1);
-%     treeshrewSpectrallyIntegratedQuantalEfficiencies = ...
-%         sum(treeShrewIntegratedQuantalEfficiency,1) * dWT/sum(wT);
-%      
-%     % Get number of L/S cones
-%     pattern = tMosaic.pattern;
-%     edges = unique(pattern);
-%     counts = histc(pattern(:), edges);
-%     cone_count = [counts(2),0,counts(3)];
-    
-    %E(n,1:3) = treeshrewSpectrallyIntegratedQuantalEfficiencies;
-    
-    %find average QE over mosaic (weight by cone occurance then average)
-%     E(n) = sum(cone_count.*treeshrewSpectrallyIntegratedQuantalEfficiencies) ...
-%         /sum(cone_count);
     
     % Calculate estimated sensitivity according to Animal Eyes
     s_AnimalEyes(n) = 0.62 * (pupilDiameterMM^2 * innerSegmentDiameterUM^2)/ ...
@@ -186,9 +153,14 @@ end
 s_Iset = tMosaicExcitationMean;
 x = s_AnimalEyes;
 y = s_Iset;
+ft = fitlm(x,y);
+
 plot(x,y,'o')
+plot(ft)
 xlabel('Sensitivity (Animal Eyes)')
 ylabel('Sensitivty (ISETBio)')
+xlim([0,inf])
+ylim([0,inf])
 
 title([{'Relationship Between ISETBIO and Animal Eyes Sensitivity'}, ...
     {sprintf('As %s Changes',parameterName)}])
@@ -198,13 +170,14 @@ for i=1:nPointsToCompute
 labels(i) = cellstr(sprintf('%s= %.2f %s', shortParameterName, eyeParameterValue(i), parameterUnits));
 end
 
-text(x,y,labels,'VerticalAlignment','bottom','HorizontalAlignment','right')
+text(x,y,labels,'VerticalAlignment','top','HorizontalAlignment','right')
 
 I1 = meanRetinalIlluminance./meanRetinalIlluminance(1); %illuminance for each level
 
 E1 = tMosaicExcitationMean./tMosaicExcitationMean(1); %efficiency for each cone (LMS) for each level
 
 S1 = s_Iset./s_Iset(1);
+
 
 
 %% Functions
