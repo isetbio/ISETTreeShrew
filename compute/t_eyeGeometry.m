@@ -46,7 +46,7 @@ deltaInnerSegmentDiameterUM = 3.0;
 %   [0,1,0] - Vary pupil diameter
 %   [0,0,1] - Vary inner segment diameter
 
-v = [0,1,0];
+v = [1,0,0];
 
 % Specify cone densities similar to Peichl 1989 and set up a mosaic. Tree
 % shrew mosaic dominated by L cones, so  we'll approximate with only L cones.
@@ -118,49 +118,54 @@ for n = 1:nPointsToCompute
             parameterUnits = 'um';
     end
     
-    % Create optical image object for current parameters.
+    % Here, we create the optical image object for the current parameters.
     tOI = oiTreeShrewCreate('pupilDiameterMM', pupilDiameterMM, 'focalLengthMM', ...
         focalLengthMM);
     
-    % Create the mosaic
+    % Now, we create the tree shrew cone mosaic. 
     tMosaic = coneMosaicTreeShrewCreate(tOI.optics.micronsPerDegree, ...
         'spatialDensity', spatialLMSdensities, ...
         'customInnerSegmentDiameter', innerSegmentDiameterUM, ...
         'integrationTime', 5/1000, ...
         'fovDegs', fovDegs);
     
-    % Compute the retinal image
+    % Now, we compute the retinal image.
     tOI = oiCompute(tOI, testScene);
     
-    % Get and store the retinal irradiance
+    % Here, we get and store the retinal illuminance.
     meanRetinalIlluminance(n) = oiGet(tOI, 'mean illuminance');
     
-    % Compute the mosaic responses (for more replicable responses, use more trials)
+    % Now, we compute the mosaic responses (for more replicable responses,
+    % use more trials).
     nTrialsNum = 1;
     emPath = zeros(nTrialsNum, 1, 2);
     
-    % Compute *treeshrew* mosaic excitation responses to treeshrew optical image
+    % Here we compute treeshrew mosaic excitation responses to the treeshrew optical
+    % image.
     tMosaicExcitation = tMosaic.compute(tOI, 'emPath', emPath);
     
-    % Find mean excitations
+    % Now, we find the mean cone excitations for the cone type specified.
     tMosaicExcitationMean(n) = ...
         meanResponseToOpticalImage(tMosaic, tMosaicExcitation, whichConeType);
     
-    % Calculate estimated sensitivity according to Animal Eyes
+    % Now, we calculate the estimated sensitivity according to Animal Eyes.
     s_AnimalEyes(n) = (pupilDiameterMM^2 * innerSegmentDiameterUM^2)/ ...
         (focalLengthMM^2);
 end
 
 %% Visualizing correlation between measures of sensitivity
-
+%
+% Plot sensitivities and best-fit line
 x = s_AnimalEyes;
 y = tMosaicExcitationMean;
-
-% Plot sensitivities and best-fit line
 plotSens(x,y,parameterName,nPointsToCompute,shortParameterName,eyeParameterValue, ...
     parameterUnits)
 
-
+% Now, we check to see if the line goes through zero. If
+% the geometry of the eye became such that no photons whatsoever were
+% allowed through, what would the ISETBio simulation predict for the sensitivity? 
+ft = fitlm(x,y);
+CM = ft.Coefficients
 %% Functions
 
 function meanResponse = meanResponseToOpticalImage(coneMosaic, coneMosaicResponse, ...
@@ -180,7 +185,7 @@ hold on
 plot(x,y,'o')
 plot(xnew,ypred)
 xlabel('Sensitivity (Animal Eyes)')
-ylabel('Sensitivty (ISETBio)')
+ylabel('Sensitivity (ISETBio)')
 xlim([0,max(x)])
 ylim([0,max(y)])
 title([{'Relationship Between ISETBIO and Animal Eyes Sensitivity'}, ...
