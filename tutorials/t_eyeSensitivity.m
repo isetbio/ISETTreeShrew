@@ -5,7 +5,8 @@
 %    Demonstrate how changing the focal length, the pupil diameter 
 %    and the inner segment aperture affect photoreceptor isomerization rate
 %    computed by ISETBio, and compare this with the analytical analysis presented
-%    Animal Eyes, pages 65-66 ff.
+%    Animal Eyes, pages 65-66 ff. Currently, only a single parameter can be
+%    varied at a time.
 %
 %   (Land, M. F., & Nilsson, D. E. (2012). Animal Eyes. OUP Oxford.)
 %
@@ -96,9 +97,12 @@ pupilDiameterMM = vT(2)*basePupilDiameterMM;
 innerSegmentDiameterUM = vT(3)*baseInnerSegmentDiameterUM;
 
 [s_IsetZero,s_AnimalEyesZero] = getSensitivity(pupilDiameterMM,focalLengthMM,innerSegmentDiameterUM,testScene,spatialLMSdensities,fovDegs,whichConeType);    
-
 s_Iset(1) = s_IsetZero;
 s_AnimalEyes(1) = s_AnimalEyesZero;
+
+% 
+% Now, we will loop through the remainder of the points and calculate the
+% both measures of sensitivity as the parameter of interest changes.
 
 for n = 1:nPointsToCompute
     % Get a vector that lets us decide the size of each of the parameters.  This
@@ -139,10 +143,6 @@ for n = 1:nPointsToCompute
     [s_Iset(n + 1),s_AnimalEyes(n + 1)] = getSensitivity(pupilDiameterMM,focalLengthMM,innerSegmentDiameterUM,testScene,spatialLMSdensities,fovDegs,whichConeType);    
         
 end
-
-% Now, use pupilDiameter
-
-
 
 %ISETBio's average cone excitation for a given image is conceptually the
 %same as the "eye sensitivity" given in Animal Eyes
@@ -210,7 +210,7 @@ function [isetSensitivity, geomSensitivity] = getSensitivity(pupilDiameterMM, ..
     isetSensitivity = ...
         meanResponseToOpticalImage(tMosaic, tMosaicExcitation, whichConeType);
     
-    % Calculate estimated sensitivity according to Animal Eyes
+    % Calculate and report estimated sensitivity according to Animal Eyes
     geomSensitivity = 0.62 * (pupilDiameterMM^2 * innerSegmentDiameterUM^2)/ ...
         (focalLengthMM^2);
     
@@ -218,6 +218,11 @@ end
 
 function meanResponse = meanResponseToOpticalImage(coneMosaic, coneMosaicResponse, ...
     targetConeType)
+% 
+% If you use nTrialsNum > 1, the resulting coneMosaicReponse data needs to
+% be reshaped before the mean excitation for specific cone types can be
+% calculated.
+
 nTrialsNum = size(coneMosaicResponse,1);
 coneMosaicResponse  = reshape(coneMosaicResponse, [nTrialsNum numel(coneMosaic.pattern)]);
 idx = find(coneMosaic.pattern == targetConeType);
