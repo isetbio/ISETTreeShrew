@@ -1,55 +1,61 @@
-function [rightAngTS,rightConeDensityTS] = getRightTreeshrewCD(ts_choose)
+function [rightAngTS,rightConeDensityTS] = getRightTreeshrewCD(varargin)
 % 
-% Use the coneDensityReadData function to get cone Density as a function of
-% visual angle for the right human eye
+% Use data from Muller, 1989 to get cone Density as a function of
+% visual angle for the right tree shrew eye
 
-%%
-% Parameters
-% Axial length
-ts_AL = 7.8; %mm 
+% Optional Parameters:
+%   retinaChoice - char - 'A','B','C'. which flattened retina to use
+%   rightEyeFOV - FOV in degrees, numeric
+%   focalLength - focal length in mm, numeric
+%   axialLength - axial length in mm, numeric
+%   angleShift - angle that eye is shifted away from forward, numeric
+%   interpolMethod - recommend 'spline' for smooth curve, 'pchip' if you
+%   don't want to extrapolate past gradient lines from flattened retina
 
-% Posterior focal length
-ts_FL = 5.81;
+% Parse inputs
+p = inputParser;
+p.addParameter('retinaChoice', 'A', @ischar)
+p.addParameter('rightEyeFOV', 175, @isnumeric)
+p.addParameter('focalLength', 5.81, @isnumeric)
+p.addParameter('axialLength', 7.8, @isnumeric)
+p.addParameter('angleShift',58,@isnumeric)
+p.addParameter('interpolMethod','spline',@ischar)
 
-% What is the angular displacement for the treeshrew eyes? Barnes Jannuzi
-% measured the angle of the skull as 58 degrees.
-angleShift = 58; %degrees
+p.parse(varargin{:});
+rightEyeFOV = p.Results.rightEyeFOV;
+focalLength = p.Results.focalLength;
+retinaChoice = p.Results.retinaChoice;
+axialLength = p.Results.axialLength;
+angleShift = p.Results.angleShift;
+interpolMethod = p.Results.interpolMethod;
 
-ts_FOV = 175; %degrees
+%% Data is all right here
 
-% 0/1/2: step size of 1.0/0.1/0.01... 1 -> step of 0.1 is usally enough.
-fineness = 1;
+% Let's convert the cone density to a unit that can be compared across eye
+% sizes: cones per visual angle. Basically, we need a measure of how many
+% external degrees of visual angle is captured by 1 mm inside the eye. We
+% need an approximation of the total degreees of the FOV, and the total mm
+% of photoreceptors (approximated by pi*focal length)
 
-% How do you want to interpolate the experimental data? Muller has gradient
-% lines, but we want to fill in the rest. I recommend 'pchip' if you don't
-% want to extrapolate past the experimental data, 'spline' if you want a
-% smoother cone density curve over eccentricity.
-interpolationMethod = 'spline';
+conePerRetinalDistanceToConePerVisAngle = (focalLength*3.14)/rightEyeFOV;
 
-% These vectors are directly adapted from Muller et al 1989. Locations in
-% mm are with respect to left side of the slice.
-
-% In order to get units of cones/mm to units of cones per visual angle, we
-% need to multiply by some internal distance (in this case, an
-% approximation for the size of the retina) and divide by an external
-% correspondent (here, the total field of view of the eye).
-
-switch ts_choose
+switch retinaChoice
     case 'A'
         exp_eye = 'right';
-        ts_fixed_loc = [0, 1, 3, 6, 9, 10, 12, 14, 15]; %mm 
-        ts_CD_coarse = (((3.14 * ts_FL)/ts_FOV)*1000).*[16, 20, 24, 28, 32, 32, 28, 24, 20]; %cones/degree
+        ts_fixed_loc = [0, 1, 3, 6, 9, 10, 12, 14, 15]; %mm
+        coarseTreeShrewCD = 1000.*[16, 20, 24, 28, 32, 32, 28, 24, 20]; %cones/mm^2
     case 'B'
         exp_eye = 'left';
         ts_fixed_loc = [0, 0.5, 2.5, 3, 3.5, 5,7, 8, 10, 11.5, 13, 14, 14.25, 14.5, 15]; %mm 
-        ts_CD_coarse = (((3.14 * ts_FL)/ts_FOV)*1000).*[16, 20, 24, 28, 32, 32, 32, 28, 28, 32, 32, 28, 24, 20, 16]; %cones/degree
+        coarseTreeShrewCD = 1000.*[16, 20, 24, 28, 32, 32, 32, 28, 28, 32, 32, 28, 24, 20, 16]; %cones/mm^2
     case 'C'
         exp_eye = 'left';
-        ts_fixed_loc = [0,0.5,1,2,3,4.5,8,9,12,13,14,15]; %mm 
-        ts_CD_coarse = (((3.14 * ts_FL)/ts_FOV)*1000).*[16, 20, 24, 28, 32, 36, 36, 32, 28, 24, 20, 16]; %cones/degree
+        ts_fixed_loc = [0,0.5,1,2,3,4.5,8,9,12,13,14,15]; %mm
+        coarseTreeShrewCD = 1000.*[16, 20, 24, 28, 32, 36, 36, 32, 28, 24, 20, 16]; %cones/mm^2
 end
 
-% (range(ts_fixed_loc)/2*1000/(angleShift+binocularField/2))
+coarseTreeShrewCD = conePerRetinalDistanceToConePerVisAngle.*coarseTreeShrewCD;
+
 %%
 % Looking at the figures: where is the center of the pupil? Not explicitly
 % stated in paper, but seems to be in center of slice.
@@ -62,24 +68,40 @@ central_Loc = (max(ts_fixed_loc)-min(ts_fixed_loc))/2;
 
 switch exp_eye
     case 'right'
-        rel_R = ts_fixed_loc - central_Loc;
+        mmFromCenter = ts_fixed_loc - central_Loc;
     case 'left'
-        rel_R = central_Loc - ts_fixed_loc;
+        mmFromCenter = central_Loc - ts_fixed_loc;
 end
 
-% Back of envelope determination of visual angle (tranforming mm from
-% flattened dimensions to wrapping around sphere, then finding angle)
-a = (rel_R ./ (ts_AL/2));
-proj_ecc = (ts_AL/2) .* sin(a);
-dist = (ts_AL/2) .* cos(a);
-focal_dist = dist - (ts_AL/2) + ts_FL;
-vis_degrees = atand(proj_ecc ./ focal_dist) + angleShift;
+%% Back of envelope determination of visual angle
+%
+%Tranforming mm from flattened dimensions to angle wrt focal point)
 
-% Now, use the interp1 function to create a discrete vector of cone density
-% as a function of visual angle.
+% Determine angle from center in radians, treating mmFromCenter as distance
+% along perimeter of circle in mm
+angleFromCenter = (mmFromCenter ./ (axialLength/2));
+
+% Project this angle and point on retina into coordinates in mm from center of
+% eye
+eccProj = (axialLength/2) .* sin(angleFromCenter);
+axialProj = (axialLength/2) .* cos(angleFromCenter);
+
+% We're interested in the geometry of the point on the retina with respect
+% to the focal point of the eye, so we calculate the coordinates with
+% respect to the focal point. Then, we find the angle from the focal point
+% to the point on the retina.
+
+focal_dist = axialProj - (axialLength/2) + focalLength;
+vis_degrees = atand(eccProj ./ focal_dist) + angleShift;
+
+%% Interpolation
+%
+% Now, use the interp1 function to create a discrete vector of cone
+% density per visual angle as a function of degree eccentricity.
 
 % Visual degrees:
-rightAngTS = min(round(vis_degrees)):(10^(-1*fineness)):max(round(vis_degrees));
+rightAngTS = min(round(vis_degrees)):(10^(-1)):max(round(vis_degrees));
 % Cone density:
-rightConeDensityTS = interp1(vis_degrees,ts_CD_coarse,rightAngTS, interpolationMethod);
+rightConeDensityTS = interp1(vis_degrees,coarseTreeShrewCD,rightAngTS,interpolMethod);
+
 end

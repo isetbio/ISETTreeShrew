@@ -1,32 +1,44 @@
-%% Code for plotting human and treeshrew cone densities
-% -Simplified to a single eye-
+%% Comparing human and treeshrew cone densities
 
 % Driving question: Sure, tree shrews have worse vision than humans. But
-% let's compare cones per visual angle, a unit that can be compared
-% across different eye sizes, as a function of degrees from the retina.
-% Humans will likely have better acuity in our retina, but how far out in
-% our visual periphery do we have to go before humans and tree shrews have
+% let's compare cones per visual angle, a unit that can be compared across
+% different eye sizes, as a function of degrees from the retina. Humans
+% will likely have better acuity in our retina, but how far out in our
+% visual periphery do we have to go before humans and tree shrews have
 % similar visual acuity?
 
+% An important note: For the comparison, we are considering the visual
+% acuity to a spot in reference to the front of the head. For human vision,
+% this would correspond roughly to our fovea. For tree shrews, because
+% their eyes are at an angle due to their skull shape, we have incorporated
+% an angle shift into the calculations.
+
+% For the human cone density data, we use data from Curcio, 1990. For the
+% tree shrew data, the cone density is approximated from Muller, 1989.
 
 % drafted by jsc
+
+%% 
 
 % Which retina (from Muller, 1989) are you interested in analyzing? 'A',
 % 'B', or 'C'.
 
-retinaChoose = 'B';
+retinaChoose = 'A';
 
 % Get the cone density as a function of visual angle for tree shrews and
 % humans (right eye only)
 [rightAngTS,rightConeDensityTS] = getRightTreeshrewCD(retinaChoose);
 treeshrewData = [rightAngTS ; rightConeDensityTS];
+
 [rightAngHuman,rightConeDensityHuman] = getRightHumanCD;
 humanData = [rightAngHuman ; rightConeDensityHuman];
 
 %Determine the visual angle where the cone density is the same across
-%species. Uses InterX function from 
+%species. Uses InterX function from
 T = InterX(treeshrewData,humanData);
 I = T(:,size(T,2));
+
+fprintf('At %.1f degrees eccentricity, both humans and tree shrews have approximately %.0f cones per visual angle.',I)
 
 %% Plotting
 
