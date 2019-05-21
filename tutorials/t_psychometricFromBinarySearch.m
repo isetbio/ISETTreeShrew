@@ -65,7 +65,7 @@ function t_psychometricFromBinarySearch(varargin)
 
 % What data do you want to use? This could be overwritten by function
 
-data = load('exampleCSFData.mat');
+data = load('testCSFData.mat');
 
 % Parse optional input from function
 p = inputParser;
