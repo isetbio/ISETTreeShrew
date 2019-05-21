@@ -3,9 +3,10 @@
 % Driving question: Sure, tree shrews have worse vision than humans. But
 % let's compare cones per visual angle, a unit that can be compared across
 % different eye sizes, as a function of degrees from the retina. Humans
-% will likely have better acuity in our retina, but how far out in our
-% visual periphery do we have to go before humans and tree shrews have
-% similar visual acuity?
+% will likely have better acuity in our retina, and given how poor we are
+% in the far periphery, tree shrews will likely outperform humans there.
+% But how far out in our visual periphery do we have to go before humans
+% and tree shrews have similar visual acuity?
 
 % An important note: For the comparison, we are considering the visual
 % acuity to a spot in reference to the front of the head. For human vision,
@@ -18,19 +19,30 @@
 
 % drafted by jsc
 
-%% 
+%% Parameters
 
-% Which retina (from Muller, 1989) are you interested in analyzing? 'A',
-% 'B', or 'C'.
+% Tree Shrew:
+%   Which retina (from Muller, 1989) are you interested in analyzing? 
+%   'A', B', or 'C'.
+    retinaChoice = 'B';
 
-retinaChoose = 'A';
+%   Eye geometry:
+    tsFocalLength = 5.81; %mm
+    tsFOV = 175; %deg
+    
+% Human:
+%   Eye geometry:
+    humanFocalLength = 17; %mm
+    humanFOV = 160; %deg
+
+
 
 % Get the cone density as a function of visual angle for tree shrews and
 % humans (right eye only)
-[rightAngTS,rightConeDensityTS] = getRightTreeshrewCD(retinaChoose);
+[rightAngTS,rightConeDensityTS] = getRightTreeshrewCD('focalLength',tsFocalLength,'rightEyeFOV',tsFOV,'retinaChoice',retinaChoice);
 treeshrewData = [rightAngTS ; rightConeDensityTS];
 
-[rightAngHuman,rightConeDensityHuman] = getRightHumanCD;
+[rightAngHuman,rightConeDensityHuman] = getRightHumanCD('focalLength',humanFocalLength,'rightEyeFOV',humanFOV);
 humanData = [rightAngHuman ; rightConeDensityHuman];
 
 %Determine the visual angle where the cone density is the same across
@@ -38,7 +50,7 @@ humanData = [rightAngHuman ; rightConeDensityHuman];
 T = InterX(treeshrewData,humanData);
 I = T(:,size(T,2));
 
-fprintf('At %.1f degrees eccentricity, both humans and tree shrews have approximately %.0f cones per visual angle.',I)
+fprintf('At %.1f degrees eccentricity, both humans and tree shrews have approximately %.0f cones per visual angle.\n',I)
 
 %% Plotting
 
@@ -75,6 +87,6 @@ for i = 1:length(yt)
 end
 set(gca, 'YTickLabels', ytl);
 legend('Human Cone Density','Treeshrew Cone Density')
-title(['Visualizing Cone Density as a Function' newline 'of Visual Angle for Treeshrew ' retinaChoose])
-xlabel(['Visual Angle (',char(176),')'])
-ylabel('Combined Cone Density (cones/degree)')
+title(['Visualizing Cone Density as a Function' newline 'of Visual Angle for Treeshrew ' retinaChoice])
+xlabel(['Visual Angle - ',char(176)])
+ylabel(['Cone Density - Log(Cones/',char(176),')'])
