@@ -29,7 +29,7 @@ p.addParameter('ylim',[40,105],@isnumeric);
 p.parse(varargin{:});
 fitResults = p.Results.fitResults;
 svmError = p.Results.svmError;
-
+ylim = p.Results.ylim;
 fit = false;
 
 if ~ismember('fitResults',p.UsingDefaults)
@@ -53,15 +53,15 @@ if fit
     line([featureThreshold,featureThreshold],[40,performanceThreshold],'Color','black','LineStyle','-')
     line([min(featureSamples),featureThreshold],[performanceThreshold,performanceThreshold],'Color','black','LineStyle','-')
     
-    featureSamplesLog = log10(featureSamples);
-    featureThresholdLog = log10(featureThreshold);
-    % Line seems to plot slightly to the left, so the 1.1 is a temporary fix
-    featureThresholdNorm = 1.1*(featureThresholdLog-min(featureSamplesLog))/range(featureSamplesLog);
-    performanceThresholdNorm = (performanceThreshold-min(ylim))/range(ylim);
-    x = [0.6 featureThresholdNorm];
-    y = [0.4 performanceThresholdNorm];
-    annotation('textarrow',x,y,'String',sprintf('(%.5f,%.0f)',featureThreshold,performanceThreshold),'FontSize',14,'FontWeight','bold')
-    
+%     featureSamplesLog = log10(featureSamples);
+%     featureThresholdLog = log10(featureThreshold);
+%     %Line seems to plot slightly to the left, so the 1.1 is a temporary fix
+%     featureThresholdNorm = 1.1*(featureThresholdLog-min(featureSamplesLog))/range(featureSamplesLog);
+%     performanceThresholdNorm = (performanceThreshold-min(ylim))/range(ylim);
+%     x = [0.6 featureThresholdNorm];
+%     y = [0.4 performanceThresholdNorm];
+%     annotation('textarrow',x,y,'String',sprintf('(%.5f,%.0f)',featureThreshold,performanceThreshold),'FontSize',14,'FontWeight','bold')
+%     
     set(gca,'xlim',[min(featureSamples),max(featureSamples)], 'XScale', 'log')
     set(gca, 'XTick', unique([featureThreshold, min(featureSamples),max(featureSamples),get(gca, 'XTick')]));
     

@@ -82,7 +82,7 @@ function t_BinarySearchCSF(varargin)
 
 % What species are you interested in simulating? Choose 'treeshrew' or
 % 'human'.
-species = 'treeshrew';
+species = 'human';
 
 % If you're simulating tree shrews, what do you want the cone density
 % of your mosaic to be? This is controlled by changing the minimum cone
@@ -92,21 +92,23 @@ species = 'treeshrew';
 %   - min cone separation of 8.5 um   ->      ~ 16,000 cones/mm^2
 cone_spacing = 7.5; %um
 
-% What do you want the standard deviation of the point-spread function
-% to be? For humans, this value is approximately 7 um. For tree shrews,
-% our preliminary analyses have indicated the value is around 12 um.
+% What do you want the standard deviation of the point-spread function to
+% be? For tree shrews, our preliminary analyses have indicated the value is
+% around 12 um.
 psfSigma = 12; %um
+
 
 % How large do you want the stimulus, and therefore the activated cone
 % mosaic, to be? The Casagrande paper used a stimulus of ~14 x 14
 % degrees. However, this would take a very long time to run the SVM, so
-% we recommend using a size of between 4x4 and 7x7 degrees
-sizeDegs = 5; % degrees per side
+% we recommend using a size of between 3x3 and 6x6 degrees. For testing,
+% however, you can use an even smaller mosaic.
+sizeDegs = 3; % degrees per side
 
 % What discrete spatial frequencies do you want to find the
 % sensitivities for? The Casagrande paper showed a treeshrew CSF
 % dropoff in the range of 0.75 - 2 cycles/degree, while for humans it
-% is in the range of 1 - 10 cycles/degree.
+% is in the range of 1 - 20 cycles/degree.
 frequencyRange = 0.75:0.25:2; %cycles per degree
 
 % What range of contrasts do you want to explore for the spatial
@@ -195,21 +197,22 @@ if compute
     switch species
         
         case 'treeshrew'
-            theMosaic = coneMosaicTreeShrewCreate(75, ...
-                'fovDegs', sizeDegs, ...
-                'customLambda', cone_spacing);
+            theMosaic = coneMosaicTreeShrewCreate(75, ...   % microns/degree for scaling
+                'fovDegs', sizeDegs, ...                    % match mosaic width to stimulus size
+                'customLambda', cone_spacing);              % what's the minimum distance between the cones?
             theOI = oiTreeShrewCreate(...
                 'inFocusPSFsigmaMicrons', psfSigma ...
                 );
             
         case 'human'
-            theMosaic = coneMosaicHex(7, ...
-                'eccBasedConeDensity', true, ...
-                'fovDegs', sizeDegs);
-            theOI = oiCreate(...
-                'inFocusPSFsigmaMicrons', psfSigma ...
-                );
-            
+            theMosaic = coneMosaicHex(7, ...               % hex lattice sampling factor
+                'fovDegs', sizeDegs, ...                   % match mosaic width to stimulus size
+                'eccBasedConeDensity', true, ...           % cone density varies with eccentricity
+                'eccBasedConeQuantalEfficiency', true, ... % cone quantal efficiency varies with eccentricity
+                'integrationTime', 10/1000, ...            % 10 msec integration time
+                'maxGridAdjustmentIterations', 50);        % terminate iterative lattice adjustment after 50 iterations
+            theOI = oiCreate('wvf human');
+           
         otherwise
             error('species should be treeshrew or human')
             
@@ -351,6 +354,8 @@ plotBinarySearch(binaryResults)
 % plot each threshold contrast as a function of the spatial frequency.
 
 % Do you want to plot Casagrande's data as well?
+%plotCasagrandeData = true;
+
 plotCasagrandeData = true;
 
 plotCSF(binaryResults, 'expInfo', expInfo, 'toDivide', toDivide, 'plotCasagrandeData', plotCasagrandeData)
