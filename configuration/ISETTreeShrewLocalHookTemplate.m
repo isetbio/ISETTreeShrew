@@ -41,7 +41,8 @@ if (exist('GetComputerInfo','file'))
     end
 end
 
-
+% Get path to data in project code with getpref('ISETTwoLine','dataDir');
+setpref(projectName,'dataDir',fullfile(baseDir,'IBIO_Analysis',projectName));
 
 
 
