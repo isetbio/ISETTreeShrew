@@ -18,7 +18,7 @@
 %}
 
 %% Initialize
-clear; %close all;
+clear; close all;
 
 % this code contains the original functions from iset bio used to make
 % figures
@@ -41,7 +41,9 @@ clear; %close all;
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
 targetWavelength = 840;
-TSindex = 1; %11 total shrews
+
+% 11 shrews measured.  Can specify a contiguous range.
+TSindex = 1:11; % 11 total shrews
 
 % Wavelength support for calculations
 wavelengthSupport = 450:10:900;
@@ -61,7 +63,7 @@ posteriorNodalDistanceMM = focalLengthMM;
 micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 
 % Some spatial parameters for visualization and calculation.
-spatialsamples = 401;
+spatialsamples = 801;
 psfRangeArcMin = 20;
 visualizedSpatialSfrequencyCPD = 10.0;
 
@@ -69,7 +71,7 @@ visualizedSpatialSfrequencyCPD = 10.0;
 % large enough to capture PSF support, but small enough
 % to model variations in the PSF.  A bit of plotting and
 % hand fussing to chose.
-psfSamplesPerMinute = 0.1;
+psfSamplesPerMinute = 0.05;
 
 % 840 nm light used in measurements of Sajdak et al 2019 (section 2.2)
 % but we will put in best focus coeffs and are calling this 550.
@@ -126,7 +128,7 @@ otfMeshFig = figure;
 %% Loop over shrews
 for ts = 1:length(TSindex)
 
-    % Set up Zernikes. These get offset by 1 from the array, as we 
+    % Set up Zernikes. These get offset by 1 from the array, as we
     % understand the reporting and storage conventions. The first OSA
     % coefficient is piston and that's not included. Then we have zero
     % for tip and tilt, also effectively not included. First reported
@@ -207,12 +209,12 @@ for ts = 1:length(TSindex)
         ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
         [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
         figure(otfMeshFig); clf;
-        subplot(1,2,1); 
+        subplot(1,2,1);
         mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otfraw));
         otf = psfCircularlyAverage(abs(otfraw));
         subplot(1,2,2);
-        mesh(xSfCyclesDeg,ySfCyclesDeg,log10(abs(otf)));
-        zlim([-3 1]);
+        mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otf));
+        zlim([0 1]);
 
         waveMTF = abs(otf);
         [~,idx] = min(abs(ySfCyclesDeg));
@@ -221,61 +223,52 @@ for ts = 1:length(TSindex)
 
 end
 
-%% Plot Avg MTF for each WL
+%% Plot Avg MTF for each tree shrew and wavelength
 MTFrows = 'B':'L';
-for ww = 1:length(targetWavelength)
+for ts = 1:length(TSindex)
+    for ww = 1:length(targetWavelength)
 
-    figure; hold on;
-    plot(xSfCyclesDeg, squeeze(mean(mtfSlice(ww,:,:),2)), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
-    set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
-    ylabel('modulation');
+        figure; hold on;
+        plot(xSfCyclesDeg, squeeze(mean(mtfSlice(ww,ts,:),2)), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
+        set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
+        ylabel('modulation');
+        xlim([0 20]);
+        xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
+        title(sprintf('TS = %d, wavelength = %s',ts,num2str(targetWavelength(ww))));
 
-    sfTicks = [0.01 0.03 0.1 0.3 1 3 10 30 100];
-    set(gca, 'XLim', [visualizedSpatialSfrequencyCPD/100 visualizedSpatialSfrequencyCPD], 'XScale', 'log');
-    set(gca, 'XTick', sfTicks);
-    axis('square')
-    grid('on'); box('on');
-    xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
-    title(['wavelength = ',num2str(targetWavelength(ww))])
+        % Comparison data
+        %
+        % Several options in spreadsheet and Austin there might be some
+        % uncertainty about which is the right comparison. Choose one,
+        % read, and use.
+        whichCompare = 'maxStrehlWAstig';
+        switch (whichCompare)
+            case 'maxContrastWAstig'
+                whichWorksheet = 'MTFs at max Contrast w Astig';
+            case 'maxStrehlWAstig'
+                whichWorksheet = 'MTFs at max Strehl w Astig';
+            case 'maxStrehlNoAstig'
+                whichWorksheet = 'MTFs at max Strehl no Astig';
+            otherwise
+                error('Unknown comparison option chosen');
+        end
+        extraData = struct;
+        extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
+        rowstart = [MTFrows(TSindex(1)),'4'];
+        rowend = [MTFrows(TSindex(end)),'15'];
+        extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
+        extraData.legend = 'Saidak et al (2019)';
+        extraData.ylabel = 'mtf';
 
-    % digitized graph
-    % extraData = mtfTreeShrewFromPaper('SaidakEtAl_2019');
-    % extraData = extraData{1};
-    % extraData.csf = extraData.csf/max(extraData.csf);
-
-    % max Strehl
-    % extraData = struct;
-    % extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range','A5:A15'));
-    % rowstart = [MTFrows(TSindex(1)),'5'];
-    % rowend = [MTFrows(TSindex(end)),'15'];
-    % extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
-    % extraData.legend = 'Saidak et al (2019)';
-    % extraData.ylabel = 'mtf';
-
-    % max contrast
-    extraData = struct;
-    extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Contrast w Astig','Range','A5:A15'));
-    rowstart = [MTFrows(TSindex(1)),'5'];
-    rowend = [MTFrows(TSindex(end)),'15'];
-    extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Contrast w Astig','Range',[rowstart,':',rowend]));
-    extraData.legend = 'Saidak et al (2019)';
-    extraData.ylabel = 'mtf';
-
-    yyaxis right
-    hold on
-    legends = {'PSF'};
-    extraDataColors = [1 0 0];
-    maxY = 0;
-
-    plot(extraData.sf, mean(extraData.csf,2), ...
-        'rs-', 'MarkerSize', 10, ...
-        'MarkerEdgeColor', squeeze(extraDataColors),  ...
-        'MarkerFaceColor', squeeze(extraDataColors)*0.5+[0.5 0.5 0.5]);
-    legends{numel(legends)+1} = extraData.legend;
-    hold off
-    set(gca,'YLim', [0 1.05]);
-    ylabel(extraData.ylabel);
-
+        % Add to plot
+        extraDataColors = [1 0 0];
+        plot(extraData.sf, mean(extraData.csf,2), ...
+            'rs-', 'MarkerSize', 10, ...
+            'MarkerEdgeColor', squeeze(extraDataColors),  ...
+            'MarkerFaceColor', squeeze(extraDataColors)*0.5+[0.5 0.5 0.5]);
+        ylim([0 1.05]);
+        ylabel(extraData.ylabel);
+    end
 end
 
 function lcaDiopters = treeShrewLCA(wl1NM, wl2NM)
