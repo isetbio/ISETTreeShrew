@@ -43,7 +43,7 @@ clear; close all;
 targetWavelength = 840;
 
 % 11 shrews measured.  Can specify a contiguous range.
-TSindex = 1:11; % 11 total shrews
+TSindex = 3; % 11 total shrews
 
 % Wavelength support for calculations
 wavelengthSupport = 450:10:900;
@@ -147,8 +147,8 @@ for ts = 1:length(TSindex)
         'name', sprintf('treeshrew-%d', calcPupilDiameterMM), ...
         'umPerDegree', micronsPerDegree,...
         'customLCA', @treeShrewLCA);
-    defocusCheck = wvfGet(wvfP,'zcoeffs','defocus');
-    if (defocusCheck ~= zCoeff4(TSindex(ts)))
+    defocus0 = wvfGet(wvfP,'zcoeffs','defocus');
+    if (defocus0 ~= zCoeff4(TSindex(ts)))
         error('Stored defocus not as intended')
     end
 
@@ -156,6 +156,27 @@ for ts = 1:length(TSindex)
     wvfP = wvfSet(wvfP, 'measured pupil size', measuredPupilDiameterMM);
     wvfP = wvfSet(wvfP, 'calc pupil size', calcPupilDiameterMM);
     wvfP = wvfSet(wvfP, 'ref psf sample interval',psfSamplesPerMinute);
+
+    % Loop over a list of defocus values and find one that maximizes the
+    % Streh ratio. This is the same as maximizing the peak of the PSF.
+    defocusDeltas = linspace(-1,1,40);
+    defocusZ = zCoeffs_TreeShrew;
+    for dd = 1:length(defocusDeltas)
+        defocusZ1 = defocusZ;
+        defocusZ1(5) = defocus0+defocusDeltas(dd);
+        wvfP1 = wvfSet(wvfP,'zcoeffs',defocusZ1);
+        wvfP1 = wvfComputePSF(wvfP1);
+        psf1 = wvfGet(wvfP1,'psf',targetWavelength(1));
+        peakPsf1(dd) = max(psf1(:));
+    end
+    figure; clf; hold on
+    plot(defocusDeltas,peakPsf1,'ro','MarkerFaceColor','r','MarkerSize',12);
+    title(sprintf('TS = %d, wavelength = %s',ts,num2str(targetWavelength(1))));
+
+    [~,idx] = max(peakPsf1);
+    maxStrehlDefocus(ts) = defocus0+defocusDeltas(idx);
+    defocusZ1(5) = maxStrehlDefocus(ts);
+    wvfP = wvfSet(wvfP,'zcoeffs',defocusZ1);
     wvfP = wvfComputePSF(wvfP);
 
     % Create optics structure with desired wvf object, and set other optics
@@ -187,7 +208,7 @@ for ts = 1:length(TSindex)
     oi = oiSet(oi, 'lens', theLens);
     oi.optics.lens = theLens;
 
-    % Loop over wavelengths
+    % Loop over target wavelengths
     for ww = 1:length(targetWavelength)
         % Find wavelength in optics closest to target wavelength
         optics = oiGet(oi, 'optics');
