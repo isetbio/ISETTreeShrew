@@ -20,41 +20,43 @@
 %% Initialize
 clear; close all;
 
-% this code contains the original functions from iset bio used to make
-% figures
-% [theWVFOI,wvfP2] = oiTreeShrewCreate('opticsType', 'wvf', ...
-%     'name', 'wvf-based optics');
-%
-% psfRangeArcMin = 50;
-% visualizedSpatialSfrequencyCPD = 10.0;
-% targetWavelength = 500;
-% visualizeOptics(theWVFOI, targetWavelength, ...
-%     psfRangeArcMin, ...
-%     visualizedSpatialSfrequencyCPD, ...
-%     'extraOTFData',  mtfTreeShrewFromPaper('SaidakEtAl_2019'));
-
 %% Unpacked oiTreeShrewCreate
 
 % Specify wavelengths to compute on, and which individual
 % tree shrews to analyze here.
+targetWavelength = 550;
+
+% Normally this is a range of wavelengths, but we are only
+% trying to make sense of results at one wavelength here,
+% so just do one for speed.
+wavelengthSupport = targetWavelength;
+
+% Can specify any contiguous range between 1 and 11.
 %
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
-targetWavelength = 840;
+TSindex = 1:11;
 
-% 11 shrews measured.  Can specify a contiguous range.
-TSindex = 3; % 11 total shrews
-
-% Wavelength support for calculations
-wavelengthSupport = 450:10:900;
+% Figure of merit to optimize.
+% Choices are:
+%   'None'
+%   'PSFPeak';
+%   'MTFArea';
+whichFigureOfMerit = 'PSFPeak';
+if (~strcmp(whichFigureOfMerit,'None'))
+    PSFPeakFig = figure; clf;
+    set(gcf,'Position',[1224 460 1126 1129]);
+    MTFAreaFig = figure; clf;
+    set(gcf,'Position',[1224 460 1126 1129]);
+end
 
 % Pupil diameter
 %
 % We're trying to reproduce Figure 2,
 % which is for a 4 mm pupil. So we calculate for that.
 % Measurements were also for a 4 mm pupil.
-calcPupilDiameterMM = 4.0;
 measuredPupilDiameterMM = 4.0;
+calcPupilDiameterMM = 4.0;
 
 % Set up focal length and conversion factors
 focalLengthMM = 4.35;
@@ -64,7 +66,6 @@ micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 
 % Some spatial parameters for visualization and calculation.
 spatialsamples = 801;
-psfRangeArcMin = 20;
 visualizedSpatialSfrequencyCPD = 10.0;
 
 % Pixels per minute for the PSF. Need to make this
@@ -74,10 +75,12 @@ visualizedSpatialSfrequencyCPD = 10.0;
 psfSamplesPerMinute = 0.05;
 
 % 840 nm light used in measurements of Sajdak et al 2019 (section 2.2)
-% but we will put in best focus coeffs and are calling this 550.
+% but we will put in best focus coeffs and are just computing
+% at some wavelength without adjustment.
+%
 % The way we are doing this, we want to use measured wavelength to
-% be the wavelength we think the shrews accommodate to.
-measuredWavelength = 840;
+% be the target wavelength
+measuredWavelength = targetWavelength;
 
 % Read in Zernicke coefficients as matrix. The original table in
 % in the spreadsheet (and plot in the paper) has an uncorrected
@@ -106,20 +109,10 @@ end
 lensAbsorbanceFile = 'treeshrewLensAbsorbance.mat';
 targetWavelenth = wavelengthSupport;
 
-% Default lens info
-theLens = Lens();
+%% Need to put in lens density for real lens
 
-% Load tree shrew lens unit-density and spline to our wavelengths
-load(lensAbsorbanceFile, 'wavelength', 'data');
-unitDensity = interp1(wavelength,data,targetWavelenth, 'pchip');
-
-% Update the lens object with wavelength and density info
-set(theLens,'wave', targetWavelenth);
-set(theLens,'unitDensity',unitDensity);
-
-%% Allocate space for storing an MTF slice for each shrew and calculated
-% wavelength
-mtfSlice = zeros(length(targetWavelength),length(TSindex),spatialsamples);
+%% Allocate space for storing an MTF slice for each shrew
+mtfSlice = zeros(length(TSindex),spatialsamples);
 
 % Define figures to cycle through
 psfMeshFig = figure;
@@ -157,30 +150,70 @@ for ts = 1:length(TSindex)
     wvfP = wvfSet(wvfP, 'calc pupil size', calcPupilDiameterMM);
     wvfP = wvfSet(wvfP, 'ref psf sample interval',psfSamplesPerMinute);
 
+    % Get PSF angular samples in minutes
+    wvfPsfAngularSamplesMinutes = wvfGet(wvfP,'psf angular samples');
+    [wvfXGridMinutes,wvfYGridMinutes] = meshgrid(wvfPsfAngularSamplesMinutes,wvfPsfAngularSamplesMinutes);
+
     % Loop over a list of defocus values and find one that maximizes the
     % Streh ratio. This is the same as maximizing the peak of the PSF.
-    defocusDeltas = linspace(-1,1,40);
-    defocusZ = zCoeffs_TreeShrew;
-    for dd = 1:length(defocusDeltas)
-        defocusZ1 = defocusZ;
-        defocusZ1(5) = defocus0+defocusDeltas(dd);
-        wvfP1 = wvfSet(wvfP,'zcoeffs',defocusZ1);
-        wvfP1 = wvfComputePSF(wvfP1);
-        psf1 = wvfGet(wvfP1,'psf',targetWavelength(1));
-        peakPsf1(dd) = max(psf1(:));
-    end
-    figure; clf; hold on
-    plot(defocusDeltas,peakPsf1,'ro','MarkerFaceColor','r','MarkerSize',12);
-    title(sprintf('TS = %d, wavelength = %s',ts,num2str(targetWavelength(1))));
+    % Also find area under MTF, which is another figure of merit we could
+    % maximize.
+    if (~strcmp(whichFigureOfMerit,'None'))
+        minDefocusDelta = -1.5;
+        maxDefoucusDelta = 1.5;
+        nDefocusDeltas = 40;
+        defocusDeltas = linspace(minDefocusDelta,maxDefoucusDelta,nDefocusDeltas);
+        defocusZCoeffs = zCoeffs_TreeShrew;
+        for dd = 1:length(defocusDeltas)
+            % Set adjusted defocus
+            defocusZ1 = defocusZCoeffs;
+            defocusZ1(5) = defocus0+defocusDeltas(dd);
+            wvfP1 = wvfSet(wvfP,'zcoeffs',defocusZ1);
 
-    [~,idx] = max(peakPsf1);
-    maxStrehlDefocus(ts) = defocus0+defocusDeltas(idx);
-    defocusZ1(5) = maxStrehlDefocus(ts);
-    wvfP = wvfSet(wvfP,'zcoeffs',defocusZ1);
-    wvfP = wvfComputePSF(wvfP);
+            % Compute PSF, find and store peak
+            wvfP1 = wvfComputePSF(wvfP1);
+            psf1 = wvfGet(wvfP1,'psf',targetWavelength);
+            peakPsf1(dd) = max(psf1(:));
+
+            % Compute MTF, find and store area under it
+            [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(wvfXGridMinutes,wvfYGridMinutes,psf1);
+            otf = psfCircularlyAverage(abs(otfraw));
+            mtfArea1(dd) = sum(otf(:));
+        end
+
+        % Plot peak of PSF and MTF area versus defocus
+        figure(PSFPeakFig); 
+        subplot(4,3,ts); hold on
+        plot(defocusDeltas,peakPsf1,'ro','MarkerFaceColor','r','MarkerSize',12);
+        xlabel('Defocus Delta'); ylabel('Peak PSF');
+        title(sprintf('TS = %d, wavelength = %s',TSindex(ts),num2str(targetWavelength)));
+        figure(MTFAreaFig); 
+        subplot(4,3,ts); hold on
+        plot(defocusDeltas,mtfArea1,'ro','MarkerFaceColor','r','MarkerSize',12);
+        xlabel('Defocus Delta'); ylabel('MTF area');
+        title(sprintf('TS = %d, wavelength = %s',TSindex(ts),num2str(targetWavelength)));
+        drawnow;
+
+        % Choose and set optimal defocus based on calcs above
+        switch whichFigureOfMerit
+            case 'PSFPeak'
+                [~,idx] = max(peakPsf1);
+                bestDefocus(ts) = defocus0+defocusDeltas(idx);
+            case 'MTFArea'
+                [~,idx] = max(mtfArea1);
+                bestDefocus(ts) = defocus0+defocusDeltas(idx);
+            case 'None'
+                bestDefocus(ts) = defocus0;
+            otherwise
+                error('Unknown figure of merit chosen');
+        end
+        defocusZ1(5) = bestDefocus(ts);
+        wvfP = wvfSet(wvfP,'zcoeffs',defocusZ1);
+    end
 
     % Create optics structure with desired wvf object, and set other optics
     % properties.
+    wvfP = wvfComputePSF(wvfP);
     optics = oiGet(wvf2oi(wvfP), 'optics');
     optics.name = 'wvf-based tree-shrew optics';
     optics = opticsSet(optics, 'focalLength', focalLengthMeters);
@@ -203,93 +236,82 @@ for ts = 1:length(TSindex)
     oi = oiSet(oi, 'diffuser method', 'skip');
     oi = oiSet(oi, 'consistency', 1);
 
-    % Push lens density into oi and optics.
-    % Update the oi.lens
-    oi = oiSet(oi, 'lens', theLens);
-    oi.optics.lens = theLens;
+    % Get PSF slice at target wavelength
+    wavePSF = opticsGet(optics,'psf data',targetWavelength);
 
-    % Loop over target wavelengths
-    for ww = 1:length(targetWavelength)
-        % Find wavelength in optics closest to target wavelength
-        optics = oiGet(oi, 'optics');
-        wavelengthSupport = opticsGet(optics, 'wave');
-        [~,idx] = min(abs(wavelengthSupport-targetWavelength(ww)));
-        targetWave = wavelengthSupport(idx);
-
-        % Get PSF slice at target wavelength
-        wavePSF = opticsGet(optics,'psf data',targetWave);
-
-        % Extract PSF support in arcmin and plot a mesh of the PSF
-        psfSupportMicrons = opticsGet(optics,'psf support','um');
-        xGridMinutes = 60*psfSupportMicrons{1}/micronsPerDegree;
-        yGridMinutes = 60*psfSupportMicrons{2}/micronsPerDegree;
-        figure(psfMeshFig); clf;
-        mesh(xGridMinutes,yGridMinutes,wavePSF);
-
-        xSfCyclesDeg = opticsGet(optics, 'otf fx', 'cyclesperdeg');
-        ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
-        [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
-        figure(otfMeshFig); clf;
-        subplot(1,2,1);
-        mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otfraw));
-        otf = psfCircularlyAverage(abs(otfraw));
-        subplot(1,2,2);
-        mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otf));
-        zlim([0 1]);
-
-        waveMTF = abs(otf);
-        [~,idx] = min(abs(ySfCyclesDeg));
-        mtfSlice(ww,ts,:) = waveMTF(idx,:);
+    % Extract PSF support in arcmin and plot a mesh of the PSF
+    psfSupportMicrons = opticsGet(optics,'psf support','um');
+    xGridMinutes = 60*psfSupportMicrons{1}/micronsPerDegree;
+    yGridMinutes = 60*psfSupportMicrons{2}/micronsPerDegree;
+    if (max(abs(wvfXGridMinutes(:)-xGridMinutes(:))) > 1e-6 | max(abs(wvfYGridMinutes(:)-yGridMinutes(:))) > 1e-6)
+        error('Do not get same psf samples from wvf and optics objects');
     end
+    figure(psfMeshFig); clf;
+    mesh(xGridMinutes,yGridMinutes,wavePSF);
+
+    xSfCyclesDeg = opticsGet(optics, 'otf fx', 'cyclesperdeg');
+    ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
+    [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
+    figure(otfMeshFig); clf;
+    subplot(1,2,1);
+    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otfraw));
+    otf = psfCircularlyAverage(abs(otfraw));
+    subplot(1,2,2);
+    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otf));
+    zlim([0 1]);
+
+    waveMTF = abs(otf);
+    [~,idx] = min(abs(ySfCyclesDeg));
+    mtfSlice(ts,:) = waveMTF(idx,:);
 
 end
 
-%% Plot Avg MTF for each tree shrew and wavelength
-MTFrows = 'B':'L';
+%% Get comparison data
+%
+% Several options in spreadsheet and Austin there might be some
+% uncertainty about which is the right comparison. Choose one,
+% read, and use.
+whichCompare = 'maxStrehlWAstig';
+switch (whichCompare)
+    case 'maxContrastWAstig'
+        whichWorksheet = 'MTFs at max Contrast w Astig';
+    case 'maxStrehlWAstig'
+        whichWorksheet = 'MTFs at max Strehl w Astig';
+    case 'maxStrehlNoAstig'
+        whichWorksheet = 'MTFs at max Strehl no Astig';
+    otherwise
+        error('Unknown comparison option chosen');
+end
+MTFcols = 'B':'L';
+extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
+rowstart = [MTFcols(TSindex(1)),'4'];
+rowend = [MTFcols(TSindex(end)),'15'];
+extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
+
+%% Plot MTF for each tree shrew and wavelength
+figure; clf;
+set(gcf,'Position',[1224 460 1126 1129]);
 for ts = 1:length(TSindex)
-    for ww = 1:length(targetWavelength)
+    subplot(4,3,ts); hold on;
+    plot(xSfCyclesDeg, mtfSlice(ts,:), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
+    set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
+    ylabel('modulation');
+    xlim([0 20]);
+    xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
+    ylabel('\it MTF')
+    MTFcols = 'B':'L';
+    title({ sprintf('TS# = %d, wl = %d nm, pupli %d mm',TSindex(ts),targetWavelength,calcPupilDiameterMM) ; ...
+        sprintf('Opt = %s, comp = %s',whichFigureOfMerit,whichCompare) ...
+        });
 
-        figure; hold on;
-        plot(xSfCyclesDeg, squeeze(mean(mtfSlice(ww,ts,:),2)), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
-        set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
-        ylabel('modulation');
-        xlim([0 20]);
-        xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
-        title(sprintf('TS = %d, wavelength = %s',ts,num2str(targetWavelength(ww))));
-
-        % Comparison data
-        %
-        % Several options in spreadsheet and Austin there might be some
-        % uncertainty about which is the right comparison. Choose one,
-        % read, and use.
-        whichCompare = 'maxStrehlWAstig';
-        switch (whichCompare)
-            case 'maxContrastWAstig'
-                whichWorksheet = 'MTFs at max Contrast w Astig';
-            case 'maxStrehlWAstig'
-                whichWorksheet = 'MTFs at max Strehl w Astig';
-            case 'maxStrehlNoAstig'
-                whichWorksheet = 'MTFs at max Strehl no Astig';
-            otherwise
-                error('Unknown comparison option chosen');
-        end
-        extraData = struct;
-        extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
-        rowstart = [MTFrows(TSindex(1)),'4'];
-        rowend = [MTFrows(TSindex(end)),'15'];
-        extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
-        extraData.legend = 'Saidak et al (2019)';
-        extraData.ylabel = 'mtf';
-
-        % Add to plot
-        extraDataColors = [1 0 0];
-        plot(extraData.sf, mean(extraData.csf,2), ...
-            'rs-', 'MarkerSize', 10, ...
-            'MarkerEdgeColor', squeeze(extraDataColors),  ...
-            'MarkerFaceColor', squeeze(extraDataColors)*0.5+[0.5 0.5 0.5]);
-        ylim([0 1.05]);
-        ylabel(extraData.ylabel);
-    end
+    % Add to plot
+    extraDataColors = [1 0 0];
+    plot(extraData.sf, extraData.csf(:,ts), ...
+        'rs-', 'MarkerSize', 9, ...
+        'MarkerEdgeColor', squeeze(extraDataColors),  ...
+        'MarkerFaceColor', squeeze(extraDataColors)*0.5+[0.5 0.5 0.5]);
+    ylim([0 1.05]);
+    ylabel('MTF');
 end
 
 function lcaDiopters = treeShrewLCA(wl1NM, wl2NM)
