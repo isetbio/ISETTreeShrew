@@ -35,14 +35,14 @@ wavelengthSupport = targetWavelength;
 %
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
-TSindex = 1:11;
+TSindex = 1 ; %1:11;
 
 % Figure of merit to optimize.
 % Choices are:
 %   'None'
 %   'PSFPeak';
 %   'MTFArea';
-whichFigureOfMerit = 'PSFPeak';
+whichFigureOfMerit = 'None';
 if (~strcmp(whichFigureOfMerit,'None'))
     PSFPeakFig = figure; clf;
     set(gcf,'Position',[1224 460 1126 1129]);
@@ -99,11 +99,59 @@ if (NOASTIG)
 end
 
 % Optional diffraction limited PSF
-DIFFRACTIONLIMITED = false;
+DIFFRACTIONLIMITED = true;
 if (DIFFRACTIONLIMITED)
+    % Zero out the zCoeffs for diffraction limited
     zCoeffs = zeros(size(zCoeffs));
     zCoeff4 = zeros(size(zCoeff4));
+
+    % Load in Roorda diff limited PSF for comparison
+    roordaPsfRangeArcMin = 3600/60;
+    roordaPsf = csvread(fullfile('RoordaOutputs','pr_0D_defocus_4mm_pupil_PSF.csv'));
+    roordaPsf = roordaPsf/sum(sum(roordaPsf(:)));
+    roordaMtf = csvread(fullfile('RoordaOutputs','pr_0D_defocus_4mm_pupil_fullMTF.csv'));
 end
+
+%% Compute Roorda's MTF from his PSF
+%
+% Spatial samples, putting 0 at the right place we hope
+[m,n] = size(roordaPsf);
+roordaPsfSamplesPos = roordaPsfRangeArcMin*linspace(0,1,m/2);
+diffSamples = diff(roordaPsfSamplesPos);
+roordaPsfSamplesArcMin = -roordaPsfRangeArcMin-diffSamples:diffSamples:roordaPsfRangeArcMin;
+[roordaXGridMinutes,roordaYGridMinutes] = meshgrid(roordaPsfSamplesArcMin,roordaPsfSamplesArcMin);
+
+% Find max PSF
+maxPsf = -Inf;
+for ii = 1:m
+    for jj=1:n
+        if (roordaPsf(ii,jj) > maxPsf)
+            maxI = ii;
+            maxJ = jj;
+            maxPsf = roordaPsf(ii,jj);
+        end
+    end
+end
+fprintf('Maximum Psf at %d, %d\n',maxI,maxJ);
+fprintf('Sf at Psf max, %f\n',roordaPsfSamplesArcMin(maxI));
+
+% Find Otf
+[roordaXSfGridCyclesDeg,roordaYSfGridCyclesDeg,roordaOtfraw] = PsfToOtf(roordaXGridMinutes,roordaYGridMinutes,roordaPsf);
+roordaOtf = psfCircularlyAverage(abs(roordaOtfraw));
+roordaMtfSlice = roordaOtf(m/2+1,m/2+1:end);
+roordaMtfSliceSfsCyclesDeg = roordaXSfGridCyclesDeg(m/2+1,m/2+1:end);
+
+% Plot Psf and Mtf slices
+roordaFig = figure; clf;
+subplot(1,2,1); hold on;
+plot(roordaPsfSamplesArcMin,roordaPsf(m/2+1,:),'ro','MarkerFaceColor','r','MarkerSize',10);
+plot(roordaPsfSamplesArcMin,roordaPsf(m/2+1,:),'k','LineWidth',5);
+xlim([-3 3]);
+subplot(1,2,2); hold on;
+plot(roordaMtfSliceSfsCyclesDeg,roordaMtfSlice);
+plot(roordaMtfSliceSfsCyclesDeg,roordaMtfSlice,'ro','MarkerFaceColor','r','MarkerSize',10);
+plot(roordaMtfSliceSfsCyclesDeg,roordaMtf(m/2+1,m/2+1:end),'k','LineWidth',5);
+drawnow;
 
 %% Set up tree shrew lens absorption
 lensAbsorbanceFile = 'treeshrewLensAbsorbance.mat';
@@ -249,6 +297,11 @@ for ts = 1:length(TSindex)
     figure(psfMeshFig); clf;
     mesh(xGridMinutes,yGridMinutes,wavePSF);
 
+    figure(roordaFig); 
+    subplot(1,2,1); hold on
+    plot(xGridMinutes(floor(spatialsamples/2)+1,:),max(max(roordaPsf))*wavePSF(floor(spatialsamples/2)+1,:)/max(max(wavePSF)), 'g-', 'LineWidth', 2);
+    xlim([-3 3]);
+
     xSfCyclesDeg = opticsGet(optics, 'otf fx', 'cyclesperdeg');
     ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
     [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
@@ -312,6 +365,12 @@ for ts = 1:length(TSindex)
         'MarkerFaceColor', squeeze(extraDataColors)*0.5+[0.5 0.5 0.5]);
     ylim([0 1.05]);
     ylabel('MTF');
+
+    % Add our MTF to figure of what Roorda sent
+    figure(roordaFig); 
+    subplot(1,2,2); hold on
+    plot(xSfCyclesDeg, mtfSlice(ts,:), 'g-', 'LineWidth', 2);
+    xlim([0 130]);
 end
 
 function lcaDiopters = treeShrewLCA(wl1NM, wl2NM)
