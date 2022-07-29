@@ -21,7 +21,7 @@
 %% Initialize
 clear; close all;
 
-%%
+%% Parameters
 %
 % Specify wavelengths to compute on, and which individual
 % tree shrews to analyze here.
@@ -32,14 +32,35 @@ targetWavelength = 550;
 % so just do one for speed.
 wavelengthSupport = targetWavelength;
 
+% Special flags
+DIFFRACTIONLIMITED = false;
+ZERODEFOCUS = true;
+NOASTIG = false;
+ROORDA_COMPARE = true;
+ROORDA_SAMPLING = true;
+
 % Can specify any contiguous range between 1 and 11.
 %
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
-ROORDA_COMPARE = true;
 TSindex = 1 ; %1:11;
+
+% Define files for direct comparisons with Roorda calculations
 if (ROORDA_COMPARE)
-    TSindex = 1;
+    if (DIFFRACTIONLIMITED)
+        roordaWvfFile = 'pr_0D_defocus_4mm_pupil_WF.csv';
+        roordaPSFFile = 'pr_0D_defocus_4mm_pupil_PSF.csv';
+        roordaMTFFile = 'pr_0D_defocus_4mm_pupil_MTF.csv';
+    else
+        switch (TSindex)
+            case 1
+                roordaWvfFile = '216OS_0D_defocus_4mm_pupil_WF.csv';
+                roordaPSFFile = '216OS_0D_defocus_4mm_pupil_PSF.csv';
+                roordaMTFFile = '216OS_0D_defocus_4mm_pupil_fullMTF.csv';
+            otherwise
+                error('Invalid tree shrew index for comparing with Roorda calculations');
+        end
+    end
 end
 
 % Figure of merit to optimize.
@@ -73,10 +94,14 @@ micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 % Pixels per minute for the PSF. Need to make this large enough to capture
 % PSF support, but small enough to model variations in the PSF.  A bit of
 % plotting and hand fussing to choose.
-spatialsamples = 801;
-psfMinutesPerSample = 0.05;
-% spatialsamples = 513;
-% psfMinutesPerSample = 120/spatialsamples;
+roordaPSFRangeArcMin = 3600/60;
+if (ROORDA_SAMPLING)
+    spatialsamples = 513;
+    PSFMinutesPerSample = 2*roordaPSFRangeArcMin/spatialsamples;
+else
+    spatialsamples = 801;
+    PSFMinutesPerSample = 0.05;
+end
 visualizedSpatialSfrequencyCPD = 10.0;
 
 % 840 nm light used in measurements of Sajdak et al 2019 (section 2.2)
@@ -87,46 +112,49 @@ visualizedSpatialSfrequencyCPD = 10.0;
 % be the target wavelength
 measuredWavelength = targetWavelength;
 
-% Read in Zernicke coefficients as matrix. The original table in
-% in the spreadsheet (and plot in the paper) has an uncorrected
+%% Data 
+%
+% Get paths to data we need
+rootDir = isetTreeShrewRootPath;
+dataDir = fullfile(rootDir,'data','TabulatedDataFromRoorda');
+zernikeFile = 'Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx';
+zernikePath = fullfile(dataDir,zernikeFile);
+
+%% Read in Zernicke coefficients as matrix.
+% 
+% The original table in in the spreadsheet (and plot in the paper) has an uncorrected
 % number for defocus. We separately read in the defocus that
 % maximizes contrast from a separate row of the spreadsheet.  This
 % was provided by Austin Roorda and the hope is this would allow
 % us to match MTFs.
-zCoeffs = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','Aberration Summaries','Range','B7:L71'));
-zCoeff4 = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','Aberration Summaries','Range','B95:L95'));
+zCoeffs = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B7:L71'));
+zCoeff4 = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B95:L95'));
+
+%% Optional zero defocus
+if (ZERODEFOCUS)
+    zCoeff4 = zeros(size(zCoeff4));
+end
 
 %% Optional zeroing of astigmatism coefficients
 %
 % Might do this
-NOASTIG = false;
 if (NOASTIG)
     zCoeffs(:,3) = 0;
     zCoeffs(:,5) = 0;
 end
 
 %% Optional diffraction limited PSF
-%
-% If desired, read in comparison data provided by Roorda.
-DIFFRACTIONLIMITED = false;
 if (DIFFRACTIONLIMITED)
-    % Zero out the zCoeffs for diffraction limited
     zCoeffs = zeros(size(zCoeffs));
     zCoeff4 = zeros(size(zCoeff4));
+end
 
-    % Load in Roorda diff limited PSF for comparison
-    if (ROORDA_COMPARE)
-        roordaPsfRangeArcMin = 3600/60;
-        roordaPsf = csvread(fullfile('RoordaOutputs','pr_0D_defocus_4mm_pupil_PSF.csv'));
-        roordaPsf = roordaPsf/sum(sum(roordaPsf(:)));
-        roordaMtf = csvread(fullfile('RoordaOutputs','pr_0D_defocus_4mm_pupil_fullMTF.csv'));
-    end
-elseif (ROORDA_COMPARE)
-    zCoeff4 = zeros(size(zCoeff4));
-    roordaPsfRangeArcMin = 3600/60;
-    roordaPsf = csvread(fullfile('RoordaOutputs','216OS_0D_defocus_4mm_pupil_PSF.csv'));
-    roordaPsf = roordaPsf/sum(sum(roordaPsf(:)));
-    roordaMtf = csvread(fullfile('RoordaOutputs','216OS_0D_defocus_4mm_pupil_fullMTF.csv'));
+%% Get Roorda comparsion data if needed
+if (ROORDA_COMPARE)
+    roordaWvf = csvread(fullfile(dataDir,roordaWvfFile));
+    roordaPSF = csvread(fullfile(dataDir,roordaPSFFile));
+    roordaPSF = roordaPSF/sum(sum(roordaPSF(:)));
+    roordaMTF = csvread(fullfile(dataDir,roordaMTFFile));
 end
 
 
@@ -135,44 +163,44 @@ end
 % Spatial samples, putting 0 at the right place to match
 % where we think the center of Roorda's PSF is.
 if (ROORDA_COMPARE)
-    [m,n] = size(roordaPsf);
-    roordaPsfSamplesPos = roordaPsfRangeArcMin*linspace(0,1,m/2);
-    diffSamples = diff(roordaPsfSamplesPos);
-    roordaPsfSamplesArcMin = -roordaPsfRangeArcMin-diffSamples:diffSamples:roordaPsfRangeArcMin;
-    [roordaXGridMinutes,roordaYGridMinutes] = meshgrid(roordaPsfSamplesArcMin,roordaPsfSamplesArcMin);
+    [m,n] = size(roordaPSF);
+    roordaPSFSamplesPos = roordaPSFRangeArcMin*linspace(0,1,m/2);
+    diffSamples = diff(roordaPSFSamplesPos);
+    roordaPSFSamplesArcMin = -roordaPSFRangeArcMin-diffSamples:diffSamples:roordaPSFRangeArcMin;
+    [roordaXGridMinutes,roordaYGridMinutes] = meshgrid(roordaPSFSamplesArcMin,roordaPSFSamplesArcMin);
 
     % Find location of PSF max.  For diffraction limited, this should be at
     % m/2+1.
-    maxPsf = -Inf;
+    maxPSF = -Inf;
     for ii = 1:m
         for jj=1:n
-            if (roordaPsf(ii,jj) > maxPsf)
+            if (roordaPSF(ii,jj) > maxPSF)
                 maxI = ii;
                 maxJ = jj;
-                maxPsf = roordaPsf(ii,jj);
+                maxPSF = roordaPSF(ii,jj);
             end
         end
     end
-    fprintf('Maximum Psf at %d, %d\n',maxI,maxJ);
-    fprintf('Sf at Psf max, %f\n',roordaPsfSamplesArcMin(maxI));
+    fprintf('Maximum PSF at %d, %d\n',maxI,maxJ);
+    fprintf('Sf at PSF max, %f\n',roordaPSFSamplesArcMin(maxI));
 
-    % Find Otf/Mtf from Roorda Psf
-    [ourRoordaXSfGridCyclesDeg,ourRoordaYSfGridCyclesDeg,ourRoordaOtf] = PsfToOtf(roordaXGridMinutes,roordaYGridMinutes,roordaPsf);
-    ourRoordaMtf = abs(ourRoordaOtf);
-    ourRoordaMtfCirc = psfCircularlyAverage(ourRoordaMtf);
-    ourRoordaMtfSlice = ourRoordaMtfCirc(m/2+1,m/2+1:end);
-    ourRoordaMtfSliceSfsCyclesDeg = ourRoordaXSfGridCyclesDeg(m/2+1,m/2+1:end);
-    roordaMtfCirc = psfCircularlyAverage(roordaMtf);
+    % Find OTF/MTF from Roorda PSF
+    [ourRoordaXSfGridCyclesDeg,ourRoordaYSfGridCyclesDeg,ourRoordaOTF] = PsfToOtf(roordaXGridMinutes,roordaYGridMinutes,roordaPSF);
+    ourRoordaMTF = abs(ourRoordaOTF);
+    ourRoordaMTFCirc = psfCircularlyAverage(ourRoordaMTF);
+    ourRoordaMTFSlice = ourRoordaMTFCirc(m/2+1,m/2+1:end);
+    ourRoordaMTFSliceSfsCyclesDeg = ourRoordaXSfGridCyclesDeg(m/2+1,m/2+1:end);
+    roordaMTFCirc = psfCircularlyAverage(roordaMTF);
 
-    % Plot Psf and Mtf slices
+    % Plot PSF and MTF slices
     %
     % Roorda PSF and MTF in red
     % MTF computed here from PSF in black
     roordaFig = figure; clf;
     set(gcf,'Position',[120 747 1794 682]);
     subplot(1,2,1); hold on;
-    plot(roordaPsfSamplesArcMin,roordaPsf(m/2+1,:),'ro','MarkerFaceColor','r','MarkerSize',10);
-    plot(roordaPsfSamplesArcMin,roordaPsf(m/2+1,:),'r','LineWidth',5);
+    plot(roordaPSFSamplesArcMin,roordaPSF(m/2+1,:),'ro','MarkerFaceColor','r','MarkerSize',10);
+    plot(roordaPSFSamplesArcMin,roordaPSF(m/2+1,:),'r','LineWidth',5);
     if (DIFFRACTIONLIMITED)
         sliceXlim = 3;
     else
@@ -181,9 +209,9 @@ if (ROORDA_COMPARE)
     xlim([-sliceXlim sliceXlim]);
     xlabel('Postion (arcmin)'); ylabel('PSF');
     subplot(1,2,2); hold on;
-    plot(ourRoordaMtfSliceSfsCyclesDeg,roordaMtfCirc(m/2+1,m/2+1:end),'r','LineWidth',5);
-    plot(ourRoordaMtfSliceSfsCyclesDeg,roordaMtfCirc(m/2+1,m/2+1:end),'ro','MarkerFaceColor','r','MarkerSize',10);
-    plot(ourRoordaMtfSliceSfsCyclesDeg,ourRoordaMtfSlice,'k','LineWidth',4);
+    plot(ourRoordaMTFSliceSfsCyclesDeg,roordaMTFCirc(m/2+1,m/2+1:end),'r','LineWidth',5);
+    plot(ourRoordaMTFSliceSfsCyclesDeg,roordaMTFCirc(m/2+1,m/2+1:end),'ro','MarkerFaceColor','r','MarkerSize',10);
+    plot(ourRoordaMTFSliceSfsCyclesDeg,ourRoordaMTFSlice,'k','LineWidth',4);
     xlabel('Spatial Freq (c/deg)'); ylabel('Circ Avg MTF');
     drawnow;
 end
@@ -195,11 +223,11 @@ targetWavelenth = wavelengthSupport;
 %% Need to put in lens density for real lens
 
 %% Allocate space for storing an MTF slice for each shrew
-mtfSlice = zeros(length(TSindex),spatialsamples);
+MTFSlice = zeros(length(TSindex),spatialsamples);
 
 % Define figures to cycle through
-psfMeshFig = figure;
-otfMeshFig = figure;
+PSFMeshFig = figure;
+OTFMeshFig = figure;
 
 %% Loop over shrews
 for ts = 1:length(TSindex)
@@ -231,11 +259,11 @@ for ts = 1:length(TSindex)
     % Other wvf properties
     wvfP = wvfSet(wvfP, 'measured pupil size', measuredPupilDiameterMM);
     wvfP = wvfSet(wvfP, 'calc pupil size', calcPupilDiameterMM);
-    wvfP = wvfSet(wvfP, 'ref psf sample interval',psfMinutesPerSample);
+    wvfP = wvfSet(wvfP, 'ref PSF sample interval',PSFMinutesPerSample);
 
     % Get PSF angular samples in minutes
-    wvfPsfAngularSamplesMinutes = wvfGet(wvfP,'psf angular samples');
-    [wvfXGridMinutes,wvfYGridMinutes] = meshgrid(wvfPsfAngularSamplesMinutes,wvfPsfAngularSamplesMinutes);
+    wvfPSFAngularSamplesMinutes = wvfGet(wvfP,'PSF angular samples');
+    [wvfXGridMinutes,wvfYGridMinutes] = meshgrid(wvfPSFAngularSamplesMinutes,wvfPSFAngularSamplesMinutes);
 
     % Loop over a list of defocus values and find one that maximizes the
     % Streh ratio. This is the same as maximizing the peak of the PSF.
@@ -255,24 +283,24 @@ for ts = 1:length(TSindex)
 
             % Compute PSF, find and store peak
             wvfP1 = wvfComputePSF(wvfP1);
-            psf1 = wvfGet(wvfP1,'psf',targetWavelength);
-            peakPsf1(dd) = max(psf1(:));
+            PSF1 = wvfGet(wvfP1,'psf',targetWavelength);
+            peakPSF1(dd) = max(PSF1(:));
 
             % Compute MTF, find and store area under it
-            [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(wvfXGridMinutes,wvfYGridMinutes,psf1);
-            otf = psfCircularlyAverage(abs(otfraw));
-            mtfArea1(dd) = sum(otf(:));
+            [xSfGridCyclesDeg,ySfGridCyclesDeg,OTFraw] = PsfToOtf(wvfXGridMinutes,wvfYGridMinutes,PSF1);
+            MTF = psfCircularlyAverage(abs(OTFraw));
+            MTFArea1(dd) = sum(MTF(:));
         end
 
         % Plot peak of PSF and MTF area versus defocus
         figure(PSFPeakFig); 
         subplot(4,3,ts); hold on
-        plot(defocusDeltas,peakPsf1,'ro','MarkerFaceColor','r','MarkerSize',12);
+        plot(defocusDeltas,peakPSF1,'ro','MarkerFaceColor','r','MarkerSize',12);
         xlabel('Defocus Delta'); ylabel('Peak PSF');
         title(sprintf('TS = %d, wavelength = %s',TSindex(ts),num2str(targetWavelength)));
         figure(MTFAreaFig); 
         subplot(4,3,ts); hold on
-        plot(defocusDeltas,mtfArea1,'ro','MarkerFaceColor','r','MarkerSize',12);
+        plot(defocusDeltas,MTFArea1,'ro','MarkerFaceColor','r','MarkerSize',12);
         xlabel('Defocus Delta'); ylabel('MTF area');
         title(sprintf('TS = %d, wavelength = %s',TSindex(ts),num2str(targetWavelength)));
         drawnow;
@@ -280,10 +308,10 @@ for ts = 1:length(TSindex)
         % Choose and set optimal defocus based on calcs above
         switch whichFigureOfMerit
             case 'PSFPeak'
-                [~,idx] = max(peakPsf1);
+                [~,idx] = max(peakPSF1);
                 bestDefocus(ts) = defocus0+defocusDeltas(idx);
             case 'MTFArea'
-                [~,idx] = max(mtfArea1);
+                [~,idx] = max(MTFArea1);
                 bestDefocus(ts) = defocus0+defocusDeltas(idx);
             case 'None'
                 bestDefocus(ts) = defocus0;
@@ -323,34 +351,42 @@ for ts = 1:length(TSindex)
     wavePSF = opticsGet(optics,'psf data',targetWavelength);
 
     % Extract PSF support in arcmin and plot a mesh of the PSF
-    psfSupportMicrons = opticsGet(optics,'psf support','um');
-    xGridMinutes = 60*psfSupportMicrons{1}/micronsPerDegree;
-    yGridMinutes = 60*psfSupportMicrons{2}/micronsPerDegree;
+    PSFSupportMicrons = opticsGet(optics,'psf support','um');
+    xGridMinutes = 60*PSFSupportMicrons{1}/micronsPerDegree;
+    yGridMinutes = 60*PSFSupportMicrons{2}/micronsPerDegree;
     if (max(abs(wvfXGridMinutes(:)-xGridMinutes(:))) > 1e-6 | max(abs(wvfYGridMinutes(:)-yGridMinutes(:))) > 1e-6)
-        error('Do not get same psf samples from wvf and optics objects');
+        error('Do not get same PSF samples from wvf and optics objects');
     end
-    figure(psfMeshFig); clf;
+    figure(PSFMeshFig); clf;
     mesh(xGridMinutes,yGridMinutes,wavePSF);
+    xlabel('x (minutes)'); ylabel('y (minutes)'); zlabel('PSF');
+    axis('square');
 
-    figure(roordaFig);
-    subplot(1,2,1); hold on
-    plot(xGridMinutes(floor(spatialsamples/2)+1,:),max(roordaPsf(m/2+1,:))*wavePSF(floor(spatialsamples/2)+1,:)/max(wavePSF(floor(spatialsamples/2)+1,:)), 'g-', 'LineWidth', 2);
-    xlim([-sliceXlim sliceXlim]);
+    if (ROORDA_COMPARE)
+        figure(roordaFig);
+        subplot(1,2,1); hold on
+        plot(xGridMinutes(floor(spatialsamples/2)+1,:),max(roordaPSF(m/2+1,:))*wavePSF(floor(spatialsamples/2)+1,:)/max(wavePSF(floor(spatialsamples/2)+1,:)), 'g-', 'LineWidth', 2);
+        xlim([-sliceXlim sliceXlim]);
+    end
 
-    xSfCyclesDeg = opticsGet(optics, 'otf fx', 'cyclesperdeg');
-    ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
-    [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
-    figure(otfMeshFig); clf;
+    xSfCyclesDeg = opticsGet(optics, 'OTF fx', 'cyclesperdeg');
+    ySfCyclesDeg = opticsGet(optics, 'OTF fy', 'cyclesperdeg');
+    [xSfGridCyclesDeg,ySfGridCyclesDeg,OTFraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
+    figure(OTFMeshFig); clf;
     subplot(1,2,1);
-    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otfraw));
-    otf = psfCircularlyAverage(abs(otfraw));
+    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(OTFraw));
+    xlabel('x sf (cyc/deg'); ylabel('y sf (cyc/deg)'); zlabel('MTF');
+    axis('square');
+    zlim([0 1]);
+    MTF = psfCircularlyAverage(abs(OTFraw));
     subplot(1,2,2);
-    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(otf));
+    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(MTF));
+    xlabel('x sf (cyc/deg'); ylabel('y sf (cyc/deg)'); zlabel('Circ Avg MTF');
+    axis('square');
     zlim([0 1]);
 
-    waveMTF = abs(otf);
     [~,idx] = min(abs(ySfCyclesDeg));
-    mtfSlice(ts,:) = waveMTF(idx,:);
+    MTFSlice(ts,:) = MTF(idx,:);
 
 end
 
@@ -371,17 +407,17 @@ switch (whichCompare)
         error('Unknown comparison option chosen');
 end
 MTFcols = 'B':'L';
-extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
+extraData.sf = cell2mat(readcell(zernikePath,'Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
 rowstart = [MTFcols(TSindex(1)),'4'];
 rowend = [MTFcols(TSindex(end)),'15'];
-extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
+extraData.csf = cell2mat(readcell(zernikePath,'Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
 
 %% Plot MTF for each tree shrew and wavelength
 figure; clf;
 set(gcf,'Position',[1224 460 1126 1129]);
 for ts = 1:length(TSindex)
     subplot(4,3,ts); hold on;
-    plot(xSfCyclesDeg, mtfSlice(ts,:), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
+    plot(xSfCyclesDeg, MTFSlice(ts,:), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
     set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
     ylabel('modulation');
     xlim([0 20]);
@@ -402,13 +438,15 @@ for ts = 1:length(TSindex)
     ylabel('MTF');
 
     % Add our MTF to figure of what Roorda sent
-    figure(roordaFig); 
-    subplot(1,2,2); hold on
-    plot(xSfCyclesDeg, mtfSlice(ts,:), 'g-', 'LineWidth', 2);
-    if (DIFFRACTIONLIMITED)
-        xlim([0 130]);
-    else
-        xlim([0 80]);
+    if (ROORDA_COMPARE)
+        figure(roordaFig);
+        subplot(1,2,2); hold on
+        plot(xSfCyclesDeg, MTFSlice(ts,:), 'g-', 'LineWidth', 2);
+        if (DIFFRACTIONLIMITED)
+            xlim([0 130]);
+        else
+            xlim([0 80]);
+        end
     end
 end
 
