@@ -37,7 +37,7 @@ DIFFRACTIONLIMITED = false;
 ZERODEFOCUS = true;
 NOASTIG = false;
 ROORDA_COMPARE = true;
-ROORDA_SAMPLING = false;
+ROORDA_SAMPLING = true;
 FLIP_DEFOCUS_SIGN = false;
 
 % Can specify any contiguous range between 1 and 11.
@@ -47,7 +47,7 @@ FLIP_DEFOCUS_SIGN = false;
 %
 % For more direct comparisons with Roorda, we have data for TS
 % 1 and 10.
-TSindex = 10;
+TSindex = 1;
 
 % Define files for direct comparisons with Roorda calculations
 if (ROORDA_COMPARE)
@@ -65,11 +65,11 @@ if (ROORDA_COMPARE)
                 if (ZERODEFOCUS)
                     roordaWvfFile = '265OD_0D_defocus_4mm_pupil_WF.csv';
                     roordaPSFFile = '265OD_0D_defocus_4mm_pupil_PSF.csv';
-                    roordaMTFFile = '265OD_0D_defocus_4mm_pupil_fullMTF.csv';
+                    roordaMTFFile = '265OD_0D_defocus_4mm_pupil_radMTF.csv';
                 else
                     roordaWvfFile = '265OD_0.8D_defocus_4mm_pupil_WF.csv';
                     roordaPSFFile = '265OD_0.8D_defocus_4mm_pupil_PSF.csv';
-                    roordaMTFFile = '265OD_0.8D_defocus_4mm_pupil_fullMTF.csv';
+                    roordaMTFFile = '265OD_0.8D_defocus_4mm_pupil_radMTF.csv';
                     roordaCompareDefocusMicrons =  0.4619;
                 end
             otherwise
@@ -132,7 +132,7 @@ measuredWavelength = targetWavelength;
 % Get paths to data we need
 rootDir = isetTreeShrewRootPath;
 dataDir = fullfile(rootDir,'data','TabulatedDataFromRoorda');
-zernikeFile = 'Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx';
+zernikeFile = 'Tree_Shrew_Aberrations_Remeasured_Oct2018_verC.xlsx';
 zernikePath = fullfile(dataDir,zernikeFile);
 
 %% Read in Zernicke coefficients as matrix.
@@ -143,7 +143,7 @@ zernikePath = fullfile(dataDir,zernikeFile);
 % was provided by Austin Roorda and the hope is this would allow
 % us to match MTFs.
 zCoeffs = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B7:L71'));
-zCoeff4 = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B95:L95'));
+zCoeff4 = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B97:L97'));
 
 %% Optional check of sign convention on defocus term
 if (FLIP_DEFOCUS_SIGN)
@@ -216,7 +216,14 @@ if (ROORDA_COMPARE)
     ourRoordaMTFCirc = psfCircularlyAverage(ourRoordaMTF);
     ourRoordaMTFSlice = ourRoordaMTFCirc(m/2+1,m/2+1:end);
     ourRoordaMTFSliceSfsCyclesDeg = ourRoordaXSfGridCyclesDeg(m/2+1,m/2+1:end);
-    roordaMTFCirc = psfCircularlyAverage(roordaMTF);
+    if (TSindex ~= 10)
+        roordaMTFSliceSfsCyclesDeg = ourRoordaXSfGridCyclesDeg(m/2+1,m/2+1:end);
+        roordaMTFCirc = psfCircularlyAverage(roordaMTF);
+        roordaMTFCircSlice = roordaMTFCirc(m/2+1,m/2+1:end);
+    else
+        roordaMTFSliceSfsCyclesDeg = roordaMTF(:,1);
+        roordaMTFCircSlice = roordaMTF(:,2);
+    end
 
     % Plot PSF and MTF slices
     %
@@ -234,11 +241,21 @@ if (ROORDA_COMPARE)
     end
     xlim([-sliceXlim sliceXlim]);
     xlabel('Postion (arcmin)'); ylabel('PSF');
+    if (ROORDA_SAMPLING)
+        title(sprintf('TS #%d,defocus %0.4f microns, Roorda spatial sampling',TSindex,zCoeff4(TSindex)));
+    else
+        title(sprintf('TS #%d,defocus %0.4f microns, our spatial sampling',TSindex,zCoeff4(TSindex)));
+    end
     subplot(1,2,2); hold on;
-    plot(ourRoordaMTFSliceSfsCyclesDeg,roordaMTFCirc(m/2+1,m/2+1:end),'r','LineWidth',5);
-    plot(ourRoordaMTFSliceSfsCyclesDeg,roordaMTFCirc(m/2+1,m/2+1:end),'ro','MarkerFaceColor','r','MarkerSize',10);
+    plot(roordaMTFSliceSfsCyclesDeg,roordaMTFCircSlice,'r','LineWidth',5);
+    plot(roordaMTFSliceSfsCyclesDeg,roordaMTFCircSlice,'ro','MarkerFaceColor','r','MarkerSize',10);
     plot(ourRoordaMTFSliceSfsCyclesDeg,ourRoordaMTFSlice,'k','LineWidth',4);
     xlabel('Spatial Freq (c/deg)'); ylabel('Circ Avg MTF');
+    if (ROORDA_SAMPLING)
+        title(sprintf('TS #%d,defocus %0.4f microns, Roorda spatial sampling',TSindex,zCoeff4(TSindex)));
+    else
+        title(sprintf('TS #%d,defocus %0.4f microns, our spatial sampling',TSindex,zCoeff4(TSindex)));
+    end
     drawnow;
 end
 
@@ -249,7 +266,7 @@ targetWavelenth = wavelengthSupport;
 %% Need to put in lens density for real lens
 
 %% Allocate space for storing an MTF slice for each shrew
-MTFSlice = zeros(length(TSindex),spatialsamples);
+MTFCircSlice = zeros(length(TSindex),spatialsamples);
 
 % Define figures to cycle through
 PSFMeshFig = figure;
@@ -314,8 +331,8 @@ for ts = 1:length(TSindex)
 
             % Compute MTF, find and store area under it
             [xSfGridCyclesDeg,ySfGridCyclesDeg,OTFraw] = PsfToOtf(wvfXGridMinutes,wvfYGridMinutes,PSF1);
-            MTF = psfCircularlyAverage(abs(OTFraw));
-            MTFArea1(dd) = sum(MTF(:));
+            MTFCirc = psfCircularlyAverage(abs(OTFraw));
+            MTFArea1(dd) = sum(MTFCirc(:));
         end
 
         % Plot peak of PSF and MTF area versus defocus
@@ -404,15 +421,15 @@ for ts = 1:length(TSindex)
     xlabel('x sf (cyc/deg'); ylabel('y sf (cyc/deg)'); zlabel('MTF');
     axis('square');
     zlim([0 1]);
-    MTF = psfCircularlyAverage(abs(OTFraw));
+    MTFCirc = psfCircularlyAverage(abs(OTFraw));
     subplot(1,2,2);
-    mesh(xSfCyclesDeg,ySfCyclesDeg,abs(MTF));
+    mesh(xSfCyclesDeg,ySfCyclesDeg,MTFCirc);
     xlabel('x sf (cyc/deg'); ylabel('y sf (cyc/deg)'); zlabel('Circ Avg MTF');
     axis('square');
     zlim([0 1]);
 
     [~,idx] = min(abs(ySfCyclesDeg));
-    MTFSlice(ts,:) = MTF(idx,:);
+    MTFCircSlice(ts,:) = MTFCirc(idx,:);
 
 end
 
@@ -421,7 +438,7 @@ end
 % Several options in spreadsheet and Austin there might be some
 % uncertainty about which is the right comparison. Choose one,
 % read, and use.
-whichCompare = 'maxStrehlWAstig';
+whichCompare = 'maxContrastWAstig';
 switch (whichCompare)
     case 'maxContrastWAstig'
         whichWorksheet = 'MTFs at max Contrast w Astig';
@@ -432,24 +449,21 @@ switch (whichCompare)
     otherwise
         error('Unknown comparison option chosen');
 end
-MTFcols = 'B':'L';
-extraData.sf = cell2mat(readcell(zernikePath,'Sheet','MTFs at max Strehl w Astig','Range','A4:A15'));
-rowstart = [MTFcols(TSindex(1)),'4'];
-rowend = [MTFcols(TSindex(end)),'15'];
-extraData.csf = cell2mat(readcell(zernikePath,'Sheet','MTFs at max Strehl w Astig','Range',[rowstart,':',rowend]));
+extraData.sf = cell2mat(readcell(zernikePath,'Sheet',whichWorksheet,'Range','A4:A30'));
+extraData.csfRaw = cell2mat(readcell(zernikePath,'Sheet',whichWorksheet,'Range','B4:L30'));
+extraData.csf = extraData.csfRaw(:,TSindex);
 
 %% Plot MTF for each tree shrew and wavelength
 figure; clf;
 set(gcf,'Position',[1224 460 1126 1129]);
 for ts = 1:length(TSindex)
     subplot(4,3,ts); hold on;
-    plot(xSfCyclesDeg, MTFSlice(ts,:), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
+    plot(xSfCyclesDeg, MTFCircSlice(ts,:), 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
     set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
     ylabel('modulation');
     xlim([0 20]);
     xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
     ylabel('\it MTF')
-    MTFcols = 'B':'L';
     title({ sprintf('TS# = %d, wl = %d nm, pupli %d mm',TSindex(ts),targetWavelength,calcPupilDiameterMM) ; ...
         sprintf('Opt = %s, comp = %s',whichFigureOfMerit,whichCompare) ...
         });
@@ -467,7 +481,7 @@ for ts = 1:length(TSindex)
     if (ROORDA_COMPARE)
         figure(roordaFig);
         subplot(1,2,2); hold on
-        plot(xSfCyclesDeg, MTFSlice(ts,:), 'g-', 'LineWidth', 2);
+        plot(xSfCyclesDeg, MTFCircSlice(ts,:), 'g-', 'LineWidth', 2);
         if (DIFFRACTIONLIMITED)
             xlim([0 130]);
         else
