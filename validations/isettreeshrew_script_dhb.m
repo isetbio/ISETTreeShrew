@@ -34,16 +34,17 @@ wavelengthSupport = targetWavelength;
 
 % Special flags
 DIFFRACTIONLIMITED = false;
-ZERODEFOCUS = true;
+ZERODEFOCUS = false;
 NOASTIG = false;
-ROORDA_COMPARE = true;
-ROORDA_SAMPLING = true;
+ROORDA_COMPARE = false;
+ROORDA_SAMPLING = false;
+FLIP_DEFOCUS_SIGN = false;
 
 % Can specify any contiguous range between 1 and 11.
 %
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
-TSindex = 1 ; %1:11;
+TSindex = 1:11;
 
 % Define files for direct comparisons with Roorda calculations
 if (ROORDA_COMPARE)
@@ -130,6 +131,11 @@ zernikePath = fullfile(dataDir,zernikeFile);
 zCoeffs = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B7:L71'));
 zCoeff4 = cell2mat(readcell(zernikePath,'Sheet','Aberration Summaries','Range','B95:L95'));
 
+%% Optional check of sign convention on defocus term
+if (FLIP_DEFOCUS_SIGN)
+    zCoeff4 = -zCoeff4;
+end
+
 %% Optional zero defocus
 if (ZERODEFOCUS)
     zCoeff4 = zeros(size(zCoeff4));
@@ -156,7 +162,6 @@ if (ROORDA_COMPARE)
     roordaPSF = roordaPSF/sum(sum(roordaPSF(:)));
     roordaMTF = csvread(fullfile(dataDir,roordaMTFFile));
 end
-
 
 %% Compute Roorda's MTF from his PSF
 %
