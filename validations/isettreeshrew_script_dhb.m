@@ -34,9 +34,9 @@ wavelengthSupport = targetWavelength;
 
 % Special flags
 DIFFRACTIONLIMITED = false;
-ZERODEFOCUS = false;
+ZERODEFOCUS = true;
 NOASTIG = false;
-ROORDA_COMPARE = false;
+ROORDA_COMPARE = true;
 ROORDA_SAMPLING = false;
 FLIP_DEFOCUS_SIGN = false;
 
@@ -44,7 +44,10 @@ FLIP_DEFOCUS_SIGN = false;
 %
 % There were 11 shrews measured, and we have from Roorda the
 % tabulated Zernike coefficients in an Excel spreadsheet.
-TSindex = 1:11;
+%
+% For more direct comparisons with Roorda, we have data for TS
+% 1 and 10.
+TSindex = 10;
 
 % Define files for direct comparisons with Roorda calculations
 if (ROORDA_COMPARE)
@@ -58,6 +61,17 @@ if (ROORDA_COMPARE)
                 roordaWvfFile = '216OS_0D_defocus_4mm_pupil_WF.csv';
                 roordaPSFFile = '216OS_0D_defocus_4mm_pupil_PSF.csv';
                 roordaMTFFile = '216OS_0D_defocus_4mm_pupil_fullMTF.csv';
+            case 10
+                if (ZERODEFOCUS)
+                    roordaWvfFile = '265OD_0D_defocus_4mm_pupil_WF.csv';
+                    roordaPSFFile = '265OD_0D_defocus_4mm_pupil_PSF.csv';
+                    roordaMTFFile = '265OD_0D_defocus_4mm_pupil_fullMTF.csv';
+                else
+                    roordaWvfFile = '265OD_0.8D_defocus_4mm_pupil_WF.csv';
+                    roordaPSFFile = '265OD_0.8D_defocus_4mm_pupil_PSF.csv';
+                    roordaMTFFile = '265OD_0.8D_defocus_4mm_pupil_fullMTF.csv';
+                    roordaCompareDefocusMicrons =  0.4619;
+                end
             otherwise
                 error('Invalid tree shrew index for comparing with Roorda calculations');
         end
@@ -95,7 +109,7 @@ micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 % Pixels per minute for the PSF. Need to make this large enough to capture
 % PSF support, but small enough to model variations in the PSF.  A bit of
 % plotting and hand fussing to choose.
-roordaPSFRangeArcMin = 3600/60;
+roordaPSFRangeArcMin = 0.5*7260.504202/60;
 if (ROORDA_SAMPLING)
     spatialsamples = 513;
     PSFMinutesPerSample = 2*roordaPSFRangeArcMin/spatialsamples;
@@ -136,9 +150,16 @@ if (FLIP_DEFOCUS_SIGN)
     zCoeff4 = -zCoeff4;
 end
 
-%% Optional zero defocus
+%% Optional zero defocus, or Roorda comparison defocus
 if (ZERODEFOCUS)
     zCoeff4 = zeros(size(zCoeff4));
+elseif (ROORDA_COMPARE)
+    switch (TSindex)
+        case 10
+            zCoeff4 = roordaCompareDefocusMicrons*ones(size(zCoeff4));
+        otherwise
+            error('Invalid tree shrew index for comparing non-zero defocus with Roorda calculations');
+    end
 end
 
 %% Optional zeroing of astigmatism coefficients
