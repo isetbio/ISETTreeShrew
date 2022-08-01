@@ -35,26 +35,14 @@ wavelengthSupport = targetWavelength;
 % Can specify any contiguous range between 1 and 11.
 %
 % There were 11 shrews measured, and we have from Roorda the
-% tabulated Zernike coefficients in an Excel spreadsheet.
+% tabulated Zernike coefficients in an Excel spreadsheet. Will likely
+% change this once we determine an ideal default shrew.
 TSindex = 1;
 
 % Can turn on/off which figures to plot
 plotFigureOfMerit = false;
 plotPsfOtf = false;
 plotMTFCompare = true;
-
-% Figure of merit to optimize.
-% Choices are:
-%   'None'
-%   'PSFPeak';
-%   'MTFArea';
-whichFigureOfMerit = 'PSFPeak';
-if (~strcmp(whichFigureOfMerit,'None')) && plotFigureOfMerit
-    PSFPeakFig = figure; clf;
-    set(gcf,'Position',[1224 460 1126 1129]);
-    MTFAreaFig = figure; clf;
-    set(gcf,'Position',[1224 460 1126 1129]);
-end
 
 % Pupil diameter
 %
@@ -94,8 +82,8 @@ measuredWavelength = targetWavelength;
 % maximizes contrast from a separate row of the spreadsheet.  This is the
 % updated spreadsheet provided by Austin Roorda with the corrected defocus
 % coefficient. The hope is that this will allow us to match MTFs.
-zCoeffs = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verB.xlsx','Sheet','Aberration Summaries','Range','B7:L71'));
-zCoeff4 = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verB.xlsx','Sheet','Aberration Summaries','Range','B97:L97'));
+zCoeffs = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verC.xlsx','Sheet','Aberration Summaries','Range','B7:L71'));
+zCoeff4 = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verC.xlsx','Sheet','Aberration Summaries','Range','B97:L97'));
 
 % Optional zeroing of astigmatism coefficients
 NOASTIG = false;
@@ -112,32 +100,48 @@ if (DIFFRACTIONLIMITED)
 end
 
 %% Set up tree shrew lens absorption
-lensAbsorbanceFile = 'treeshrewLensAbsorbance.mat';
-targetWavelenth = wavelengthSupport;
-% TreeShrew lens absorption. Start with the human lens.
-theLens = Lens();
+% This section requires iterating over multiple wavelengths for interp1 to
+% work. Will leave this commented for now.
 
-% Load TreeShrew lens unit-density
-load(lensAbsorbanceFile, 'wavelength', 'data');
 
-if (isempty(targetWavelenth))
-    targetWavelenth = wavelength;
-    unitDensity = data;
-else
-    % Interpolate to optics wavelength support
-    unitDensity = interp1(wavelength,data,targetWavelenth, 'pchip');
-end
+% lensAbsorbanceFile = 'treeshrewLensAbsorbance.mat';
+% targetWavelenth = wavelengthSupport;
+% 
+% % Load TreeShrew lens unit-density
+% load(lensAbsorbanceFile, 'wavelength', 'data');
+% 
+% % TreeShrew lens absorption. Start with the human lens.
+% theLens = Lens();
+% 
+% if (isempty(targetWavelenth))
+%     targetWavelenth = wavelength;
+%     unitDensity = data;
+% else
+%     % Interpolate to optics wavelength support
+%     unitDensity = interp1(wavelength,data,targetWavelenth, 'pchip');
+% end
+
+% Update the lens
+% set(theLens,'wave', targetWavelenth);
+% set(theLens,'unitDensity',unitDensity);
+
+% from oiTreeShrewCreate
+% Update the oi.lens
+% oi = oiSet(oi, 'lens', theLens);
+
+% Set the same lens in the optics structure too
+% oi.optics.lens = theLens;
 
 %% Allocate space for storing an MTF slice for each shrew
 mtfSlice = zeros(1,spatialsamples);
 
-% Define figures to cycle through if plotPsfOtf is turned on
+% Define figures to display if plotPsfOtf is turned on
 if plotPsfOtf
 psfMeshFig = figure;
 otfMeshFig = figure;
 end
 
-%% Loop over shrews
+%% Set up OI and extract PSF and OTF data from single shrew
 
 % Set up Zernikes. These get offset by 1 from the array, as we
 % understand the reporting and storage conventions. The first OSA
@@ -208,11 +212,14 @@ if (max(abs(wvfXGridMinutes(:)-xGridMinutes(:))) > 1e-6 | max(abs(wvfYGridMinute
     error('Do not get same psf samples from wvf and optics objects');
 end
 
+% Get x,y degrees for OTF plotting, convert PSF to OTF, and circularly
+% average
 xSfCyclesDeg = opticsGet(optics, 'otf fx', 'cyclesperdeg');
 ySfCyclesDeg = opticsGet(optics, 'otf fy', 'cyclesperdeg');
 [xSfGridCyclesDeg,ySfGridCyclesDeg,otfraw] = PsfToOtf(xGridMinutes,yGridMinutes,wavePSF);
 otf = psfCircularlyAverage(abs(otfraw));
 
+% Extract single MTF slice at y minimum
 waveMTF = abs(otf);
 [~,idx] = min(abs(ySfCyclesDeg));
 mtfSlice = waveMTF(idx,:);
@@ -253,7 +260,7 @@ extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xls
 %% Plot MTF for each tree shrew and wavelength
 if plotMTFCompare
 figure; clf;
-set(gcf,'Position',[1224 460 1126 1129]);
+set(gcf,'Position',[1000 580 540 300]);
 hold on;
 plot(xSfCyclesDeg, mtfSlice, 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 10);
 set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
@@ -290,69 +297,220 @@ sceneFOVdegs = 5.0;
 umPerDegree = 76;
 imageProps = [1 1];
 integrationTime = 1/1000;
-nTrialsNum = 10;
+nTrialsNum = 1;
 sizeConeExcit = 564;
+
+% Define any set of targets and distractors with imgidx to display  
+% generated scene, optical image, and cone responses
+folderName = 'C:/Users/eemeyer/Documents/GitHub/arcaro_rotation/imagematch_test/';
+imgFolder{1} = dir([folderName,'camels/target*']);
+imgFolder{2} = dir([folderName,'wrenches/distractor*']);
+imgidx = 1:10; %1:length(targetFile)
 
 % Set which figures should be plotted for the scene
 displayContrastProfiles = false;
 displayRadianceMaps = false;
 displayRetinalContrastProfiles = false;
+displayConeMosaic = false;
+displayImages = true;
 
-% Initialize figures for generated scene, optical images, and cone
-% responses
-figure;
-genScene = tiledlayout('flow','TileSpacing','Compact');
-figure;
-opticalImage = tiledlayout('flow','TileSpacing','Compact');
-% coneResponses = tiledlayout('flow','TileSpacing','Compact');
-
-% Loop through any set of targets to display generated scene, optical
-% image, and cone responses
-targetidx = 1:6;
+% Initialize figures for generated scene and optical images
+if displayImages
+    figure;
+    genScene = tiledlayout('flow','TileSpacing','Compact');
+    figure;
+    opticalImage = tiledlayout('flow','TileSpacing','Compact');
+end
 
 % Initialize coneExcitations. Not sure where the size of coneExcitations is
-% determined to initilize the size, but the 564 can be replaced.
-coneExcitations = zeros(length(targetidx),nTrialsNum,sizeConeExcit,sizeConeExcit);
-for ti = 1:length(targetidx)
+% determined to initilize the size, but sizeConeExcit can be replaced.
+coneExcitations = {};
+coneExcitations{1} = zeros(length(imgidx),nTrialsNum,sizeConeExcit,sizeConeExcit);
+coneExcitations{2} = zeros(length(imgidx),nTrialsNum,sizeConeExcit,sizeConeExcit);
+
+% Loop through the number of images and loop through the targets and
+% distractors (itype). Resulting cone excitations for all images are stored
+% in the cell array coneExcitations with cell 1: targets, cell 2:
+% distractors
+for img = 1:length(imgidx)
+    for itype = 1:2
+        % Load the camels (targets) and realized it on presentation display. 
+        imgFile = fullfile(imgFolder{itype}(img).folder,imgFolder{itype}(img).name);
+        realizedStimulusScene = sceneFromFile(imgFile, 'monochrome', ...
+            meanLuminanceCdPerM2, presentationDisplay);
+
+        % Set FOV in scene structure
+        realizedStimulusScene = sceneSet(realizedStimulusScene, 'fov', sceneFOVdegs);
+
+        % Compute the retinal image
+        oi = oiCompute(oi, realizedStimulusScene);
+        
+        if displayImages
+        % Visualize generated scene and computed optical image
+        % Visualize different aspects of the 
+        ax_temp = nexttile(genScene);
+        visualizeScene(realizedStimulusScene, 'displayContrastProfiles', displayContrastProfiles,...
+            'displayRadianceMaps',displayRadianceMaps,'axesHandle',ax_temp);
+
+        % Visualize different aspects of the computed optical image
+        % nexttile(opticalImage);
+        ax_temp = nexttile(opticalImage);
+        visualizeOpticalImage(oi, 'displayRetinalContrastProfiles', displayRetinalContrastProfiles,...
+            'displayRadianceMaps',displayRadianceMaps,'axesHandle',ax_temp);
+        end
+        
+        % create cone mosaic structure
+        theConeMosaic = coneMosaicTreeShrewCreate(...
+            umPerDegree, ...
+            'fovDegs', sceneFOVdegs*imageProps, ... % double check these values are correct
+            'integrationTime', integrationTime);
+
+        % Generate cone responses and visualize
+        emPath = zeros(nTrialsNum, 1, 2);
+        % Compute mosaic excitation responses
+        coneExcitations{itype}(img,:,:,:) = theConeMosaic.compute(oi, 'emPath', emPath);
+
+        % Visualize cone mosaic and its cone excitation responses
+        if displayConeMosaic
+            theConeMosaic.displayInfo();
+            theConeMosaic.visualizeGrid('backgroundColor', [1 1 1], 'generateNewFigure', true); 
+
+            visualizeConeMosaicResponses(theConeMosaic, squeeze(coneExcitations{itype}(img,:,:,:)), 'R*/cone/tau');
+        end
+    end
+end
+
+%% Attempt at SVM, code from ls_inferenceBinarySVM in ISETLiveScripts
+
+% Simulate a 2AFC task 
+taskIntervals = 1;
+[classificationMatrix, classLabels] = generateSetUpForClassifier(theConeMosaic, ...
+    squeeze(coneExcitations{1}), squeeze(coneExcitations{2}), taskIntervals);
+
+% Find principal components of the responses
+[pcVectors, ~, ~, ~,varianceExplained] = pca(classificationMatrix);
+
+% Project the responses onto the space formed by the first 4 PC vectors
+pcComponentsNumForClassification = 2;
+classificationMatrixProjection = classificationMatrix * pcVectors(:,1:pcComponentsNumForClassification);
+
+% Visualize the first 4 principal components.
+visualizePrincipalComponents(pcVectors, varianceExplained, theConeMosaic);
+
+% Train a binary SVM classifier and visualize the support vectors in 2
+% dimensions
+svm = fitcsvm(classificationMatrixProjection,classLabels);
+
+% Visualize the data along with the hyperplane computed by the SVM 
+visualizeSVMmodel(svm, classificationMatrixProjection, classLabels);
+
+
+%% Necessary functions for SVM classification and visualization
+function [classificationMatrix, classLabels] = generateSetUpForClassifier(theMosaic, ...
+    coneExcitationsTest, coneExcitationsNull, taskIntervals)
+
+% Obtain the indices of the grid nodes that contain cones
+[~,~,~, nonNullConeIndices] = theMosaic.indicesForCones;
+
+% Extract the response vectors for nodes containing cones
+[nTrials, nRows, mCols, nTimeBins] = size(coneExcitationsTest);
+coneExcitationsTestReshaped = reshape(coneExcitationsTest, [nTrials nRows*mCols nTimeBins]);
+coneExcitationsNullReshaped = reshape(coneExcitationsNull, [nTrials nRows*mCols nTimeBins]);
+testResponses = coneExcitationsTestReshaped(:, nonNullConeIndices, :);
+nullResponses = coneExcitationsNullReshaped(:, nonNullConeIndices, :);
+
+% Collapse response vectors across space and time
+responseSize = numel(nonNullConeIndices)*nTimeBins;
+testResponses = reshape(testResponses, [nTrials responseSize]);
+nullResponses = reshape(nullResponses, [nTrials responseSize]);
     
-% Load the camels (targets) and realized it on presentation display. 
-fileName = ['C:/Users/eemeyer/Documents/GitHub/arcaro_rotation/imagematch_test/camels/target_',num2str(targetidx(ti)-1),'.png'];
-realizedStimulusScene = sceneFromFile(fileName, 'monochrome', ...
-    meanLuminanceCdPerM2, presentationDisplay);
+% Assemble the response vectors into a classification matrix simulating either 
+% a one interval task or a two-interval task.
+if (taskIntervals == 1)
+    % In the one interval task, the null and test response instances are labelled as the 2 classes.
+    % Allocate matrices
+    classificationMatrix = nan(2*nTrials, responseSize);
+    classLabels = nan(2*nTrials, 1);
+    % Class 1
+    classificationMatrix(1:nTrials,:) = nullResponses;
+    classLabels((1:nTrials)) = 0;
+    % Class 2
+    classificationMatrix(nTrials+(1:nTrials),:) = testResponses;
+    classLabels(nTrials+(1:nTrials)) = 1;
+elseif (taskIntervals == 2)
+    % In the two inteval task, we concatenate [null test] as one class and [test null] as the other. 
+    % Allocate matrices
+    classificationMatrix = nan(nTrials, 2*responseSize);
+    classLabels = nan(nTrials, 1);
+    halfTrials = floor(nTrials/2);
+    % Class 1
+    classificationMatrix(1:halfTrials,:) = [...
+        nullResponses(1:halfTrials,:) ...
+        testResponses(1:halfTrials,:)];
+    classLabels((1:halfTrials)) = 0;
+    % Class 2
+    idx = halfTrials+(1:halfTrials);
+    classificationMatrix(idx,:) = [...
+        testResponses(idx,:) ...
+        nullResponses(idx,:)];
+    classLabels(idx) = 1;
+else
+    error('Task can have 1 or 2 intervals only.')
+end
+end
 
-% Set FOV in scene structure
-realizedStimulusScene = sceneSet(realizedStimulusScene, 'fov', sceneFOVdegs);
+function visualizePrincipalComponents(pcVectors, varianceExplained, theMosaic)
+    figure(); clf;
+    subplotPosVectors = NicePlot.getSubPlotPosVectors(...
+       'rowsNum', 2, ...
+       'colsNum', 2, ...
+       'heightMargin',  0.1, ...
+       'widthMargin',    0.01, ...
+       'leftMargin',     0.01, ...
+       'rightMargin',    0.01, ...
+       'bottomMargin',   0.1, ...
+       'topMargin',      0.1);
+    for pcaComponentIndex = 1:4
+        title = sprintf('PCA %d, variance\nexplained: %2.2f%%', ...
+            pcaComponentIndex, varianceExplained(pcaComponentIndex));
+        r = floor((pcaComponentIndex-1)/2)+1;
+        c = mod(pcaComponentIndex-1,2)+1;
+        ax = subplot('Position', subplotPosVectors(r,c).v);
+        theMosaic.renderActivationMap(ax, pcVectors(:,pcaComponentIndex), ...
+             'fontSize', 14, ...
+              'titleForMap', title);
+        ylabel('')
+        set(ax, 'YTick', [])
+        if (pcaComponentIndex < 3)
+            xlabel('')
+            set(ax, 'XTick', [])
+        end
+    end
+end
 
-% Visualize generated scene and computed optical image
-% Visualize different aspects of the 
-tempax = nexttile(genScene);
-visualizeScene(realizedStimulusScene, 'displayContrastProfiles', displayContrastProfiles,...
-    'displayRadianceMaps',displayRadianceMaps,'axesHandle',tempax);
+function visualizeSVMmodel(svmModel, data, classes)
+    sv = svmModel.SupportVectors;
+    h = max(abs(data(:)))/100; % Mesh grid step size
+    r = -h*100:h:h*100;
+    [X1,X2] = ndgrid(r, r);
+    [~,score] = predict(svmModel,[X1(:),X2(:)]);
+    scoreGrid = reshape(score(:,1),numel(r), numel(r));
 
-% Compute the retinal image
-oi = oiCompute(oi, realizedStimulusScene);
-
-% Visualize different aspects of the computed optical image
-% nexttile(opticalImage);
-tempax = nexttile(opticalImage);
-visualizeOpticalImage(oi, 'displayRetinalContrastProfiles', displayRetinalContrastProfiles,...
-    'displayRadianceMaps',displayRadianceMaps,'axesHandle',tempax);
-
-% create cone mosaic structure
-theConeMosaic = coneMosaicTreeShrewCreate(...
-    umPerDegree, ...
-    'fovDegs', sceneFOVdegs*imageProps, ... % double check these values are correct
-    'integrationTime', integrationTime);
-% theConeMosaic.displayInfo();
-% theConeMosaic.visualizeGrid('backgroundColor', [1 1 1], 'generateNewFigure', true); 
-
-% Generate cone responses and visualize
-emPath = zeros(nTrialsNum, 1, 2);
-% Compute mosaic excitation responses
-coneExcitations(ti,:,:,:) = theConeMosaic.compute(oi, 'emPath', emPath);
-size(coneExcitations);
-
-% Visualize cone mosaic and its cone excitation responses
-visualizeConeMosaicResponses(theConeMosaic, squeeze(coneExcitations(ti,:,:,:)), 'R*/cone/tau');
-
+    figure(); clf;
+    class0Indices = find(classes == 0);
+    class1Indices = find(classes == 1);
+    
+    plot(data(class0Indices,1),data(class0Indices,2),'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'c'); hold on
+    plot(data(class1Indices,1), data(class1Indices,2), 'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+    contourf(X1,X2,scoreGrid, 50); 
+    plot(data(class0Indices,1),data(class0Indices,2),'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'c')
+    plot(data(class1Indices,1), data(class1Indices,2), 'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+    plot(sv(:,1),sv(:,2),'ks','MarkerSize',12, 'LineWidth', 1.5);
+    colormap(brewermap(1024, 'RdBu'))
+    hold off
+    xlabel('PC component #1 activation')
+    ylabel('PC component #2 activation')
+    legend('null stimulus', 'test stimulus')
+    set(gca, 'FontSize',14)
+    axis 'square'
 end
