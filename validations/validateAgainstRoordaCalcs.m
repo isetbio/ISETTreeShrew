@@ -1,16 +1,29 @@
-% Replicate as best we can the results in
-% Sajdak et al., 2019, Experimental Eye Research,
-% 185, 107683.
+% validateAgainstRoordaCalcs
+% 
+% Go from Zernikes to MTFs and compare against Austin Roorda's
+% calculations.  We use tabulated data provided by Roorda that underlies
+% the figures in Sajdak et al., 2019, Experimental Eye Research, 185,
+% 107683.
 %
 % Thanks to Austin Roorda for clarifications and for
 % providing tabulated data and example calculations.
 %
-% In this version, we unpack some of the encapsulated
+% In this version, we unpack some of our original encapsulated
 % tree shrew routines to expose more parameters.  See 
 % oiTreeShrewCreate for the packed up version.
+%
+% Roorda provided tables of intermediate steps in the calculations for
+% TS #1 and 10, which we match well when we use his spatial sampling
+% parameters.
+%
+% As of 8/1/22, we are not matching the tabulated MTFs he provided
+% originally.  We currently think that's because those deviate from his
+% calculations, but await further checking.
 
 % History:
 %   07/22/2022  dhb  Move from original Nicolas/Emily live script versions.
+%   08/01/2022  dhb  Many options for comparing various things.  Awaiting
+%                    next round of MTF comparison data or another idea.
 
 % Configuration.  Execute the tbUseProjec command
 % below to configure, if you use ToolboxToolbox.
@@ -34,10 +47,10 @@ wavelengthSupport = targetWavelength;
 
 % Special flags
 DIFFRACTIONLIMITED = false;
-ZERODEFOCUS = true;
+ZERODEFOCUS = false;
 NOASTIG = false;
 ROORDA_COMPARE = true;
-ROORDA_SAMPLING = true;
+ROORDA_SAMPLING = false;
 FLIP_DEFOCUS_SIGN = false;
 
 % Can specify any contiguous range between 1 and 11.
@@ -47,7 +60,7 @@ FLIP_DEFOCUS_SIGN = false;
 %
 % For more direct comparisons with Roorda, we have data for TS
 % 1 and 10.
-TSindex = 1;
+TSindex = 10;
 
 % Define files for direct comparisons with Roorda calculations
 if (ROORDA_COMPARE)
