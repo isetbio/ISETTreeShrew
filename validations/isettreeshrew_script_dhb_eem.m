@@ -60,7 +60,6 @@ micronsPerDegree = posteriorNodalDistanceMM * 1000 * tand(1);
 
 % Some spatial parameters for visualization and calculation.
 spatialsamples = 801;
-visualizedSpatialSfrequencyCPD = 10.0;
 
 % Pixels per minute for the PSF. Need to make this
 % large enough to capture PSF support, but small enough
@@ -252,10 +251,10 @@ switch (whichCompare)
         error('Unknown comparison option chosen');
 end
 MTFcols = 'B':'L';
-extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet',whichWorksheet,'Range','A4:A15'));
+extraData.sf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verC.xlsx','Sheet',whichWorksheet,'Range','A4:A15'));
 rowstart = [MTFcols(TSindex(1)),'4'];
 rowend = [MTFcols(TSindex(end)),'15'];
-extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018.xlsx','Sheet',whichWorksheet,'Range',[rowstart,':',rowend]));
+extraData.csf = cell2mat(readcell('Tree_Shrew_Aberrations_Remeasured_Oct2018_verC.xlsx','Sheet',whichWorksheet,'Range',[rowstart,':',rowend]));
 
 %% Plot MTF for each tree shrew and wavelength
 if plotMTFCompare
@@ -269,9 +268,7 @@ xlim([0 20]);
 xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
 ylabel('\it MTF')
 MTFcols = 'B':'L';
-title({ sprintf('TS# = %d, wl = %d nm, pupli %d mm',TSindex,targetWavelength,calcPupilDiameterMM) ; ...
-    sprintf('Opt = %s, comp = %s',whichFigureOfMerit,whichCompare) ...
-    });
+title({sprintf('TS# = %d, wl = %d nm, pupli %d mm',TSindex,targetWavelength,calcPupilDiameterMM)});
 
 % Add to plot
 extraDataColors = [1 0 0];
@@ -283,7 +280,45 @@ ylim([0 1.05]);
 ylabel('MTF');
 end
 
-%% Create presentation display
+%% Compare this with default from ISETTreeShrew
+
+theWVFOI = oiTreeShrewCreate('opticsType', 'wvf', ...
+    'name', 'wvf-based optics');
+
+% Get PSF slice at target wavelength
+optics2 = oiGet(theWVFOI,'optics');
+
+psfSupportMicrons2 = opticsGet(optics2,'psf support','um');
+xGridMinutes2 = 60*psfSupportMicrons2{1}/micronsPerDegree;
+yGridMinutes2 = 60*psfSupportMicrons2{2}/micronsPerDegree;
+
+wavePSF2 = opticsGet(optics2,'psf data',targetWavelength);
+xSfCyclesDeg2 = opticsGet(optics2, 'otf fx', 'cyclesperdeg');
+ySfCyclesDeg2 = opticsGet(optics2, 'otf fy', 'cyclesperdeg');
+[xSfGridCyclesDeg2,ySfGridCyclesDeg2,otfraw2] = PsfToOtf(xGridMinutes2,yGridMinutes2,wavePSF2);
+otf2 = psfCircularlyAverage(abs(otfraw2));
+
+% Extract single MTF slice at y minimum
+waveMTF2 = abs(otf2);
+[~,idx2] = min(abs(ySfCyclesDeg));
+mtfSlice2 = waveMTF2(idx2,:);
+
+figure; clf;
+set(gcf,'Position',[1000 580 540 300]);
+plot(xSfCyclesDeg2, mtfSlice2, 'go-', 'MarkerFaceColor', [0 0.6 0], 'MarkerSize', 10);
+
+hold on;
+plot(xSfCyclesDeg, mtfSlice, 'bo-', 'MarkerFaceColor', [0 0.8 1.0], 'MarkerSize', 5);
+set(gca, 'YTickLabel', 0:0.1:1, 'YTick', 0:0.1:1.0, 'YLim', [0 1.05]);
+ylabel('modulation');
+xlim([0 20]);
+xlabel('\it spatial frequency (c/deg)', 'FontWeight', 'normal');
+ylabel('\it MTF')
+MTFcols = 'B':'L';
+title({sprintf('TS# = %d, wl = %d nm, pupli %d mm',TSindex,targetWavelength,calcPupilDiameterMM)});
+
+
+%% Create presentation display with Kell images
 % Generate object using display measurements from match-to-sample
 % experiment.
 presentationDisplay = generateTreeShrewDisplayObject_eemParams();
@@ -297,7 +332,7 @@ sceneFOVdegs = 5.0;
 umPerDegree = 76;
 imageProps = [1 1];
 integrationTime = 1/1000;
-nTrialsNum = 1;
+nTrialsNum = 100;
 sizeConeExcit = 564;
 
 % Define any set of targets and distractors with imgidx to display  
@@ -305,7 +340,7 @@ sizeConeExcit = 564;
 folderName = 'C:/Users/eemeyer/Documents/GitHub/arcaro_rotation/imagematch_test/';
 imgFolder{1} = dir([folderName,'camels/target*']);
 imgFolder{2} = dir([folderName,'wrenches/distractor*']);
-imgidx = 1:10; %1:length(targetFile)
+imgidx = 1; %1:length(targetFile)
 
 % Set which figures should be plotted for the scene
 displayContrastProfiles = false;
@@ -403,114 +438,3 @@ svm = fitcsvm(classificationMatrixProjection,classLabels);
 
 % Visualize the data along with the hyperplane computed by the SVM 
 visualizeSVMmodel(svm, classificationMatrixProjection, classLabels);
-
-
-%% Necessary functions for SVM classification and visualization
-function [classificationMatrix, classLabels] = generateSetUpForClassifier(theMosaic, ...
-    coneExcitationsTest, coneExcitationsNull, taskIntervals)
-
-% Obtain the indices of the grid nodes that contain cones
-[~,~,~, nonNullConeIndices] = theMosaic.indicesForCones;
-
-% Extract the response vectors for nodes containing cones
-[nTrials, nRows, mCols, nTimeBins] = size(coneExcitationsTest);
-coneExcitationsTestReshaped = reshape(coneExcitationsTest, [nTrials nRows*mCols nTimeBins]);
-coneExcitationsNullReshaped = reshape(coneExcitationsNull, [nTrials nRows*mCols nTimeBins]);
-testResponses = coneExcitationsTestReshaped(:, nonNullConeIndices, :);
-nullResponses = coneExcitationsNullReshaped(:, nonNullConeIndices, :);
-
-% Collapse response vectors across space and time
-responseSize = numel(nonNullConeIndices)*nTimeBins;
-testResponses = reshape(testResponses, [nTrials responseSize]);
-nullResponses = reshape(nullResponses, [nTrials responseSize]);
-    
-% Assemble the response vectors into a classification matrix simulating either 
-% a one interval task or a two-interval task.
-if (taskIntervals == 1)
-    % In the one interval task, the null and test response instances are labelled as the 2 classes.
-    % Allocate matrices
-    classificationMatrix = nan(2*nTrials, responseSize);
-    classLabels = nan(2*nTrials, 1);
-    % Class 1
-    classificationMatrix(1:nTrials,:) = nullResponses;
-    classLabels((1:nTrials)) = 0;
-    % Class 2
-    classificationMatrix(nTrials+(1:nTrials),:) = testResponses;
-    classLabels(nTrials+(1:nTrials)) = 1;
-elseif (taskIntervals == 2)
-    % In the two inteval task, we concatenate [null test] as one class and [test null] as the other. 
-    % Allocate matrices
-    classificationMatrix = nan(nTrials, 2*responseSize);
-    classLabels = nan(nTrials, 1);
-    halfTrials = floor(nTrials/2);
-    % Class 1
-    classificationMatrix(1:halfTrials,:) = [...
-        nullResponses(1:halfTrials,:) ...
-        testResponses(1:halfTrials,:)];
-    classLabels((1:halfTrials)) = 0;
-    % Class 2
-    idx = halfTrials+(1:halfTrials);
-    classificationMatrix(idx,:) = [...
-        testResponses(idx,:) ...
-        nullResponses(idx,:)];
-    classLabels(idx) = 1;
-else
-    error('Task can have 1 or 2 intervals only.')
-end
-end
-
-function visualizePrincipalComponents(pcVectors, varianceExplained, theMosaic)
-    figure(); clf;
-    subplotPosVectors = NicePlot.getSubPlotPosVectors(...
-       'rowsNum', 2, ...
-       'colsNum', 2, ...
-       'heightMargin',  0.1, ...
-       'widthMargin',    0.01, ...
-       'leftMargin',     0.01, ...
-       'rightMargin',    0.01, ...
-       'bottomMargin',   0.1, ...
-       'topMargin',      0.1);
-    for pcaComponentIndex = 1:4
-        title = sprintf('PCA %d, variance\nexplained: %2.2f%%', ...
-            pcaComponentIndex, varianceExplained(pcaComponentIndex));
-        r = floor((pcaComponentIndex-1)/2)+1;
-        c = mod(pcaComponentIndex-1,2)+1;
-        ax = subplot('Position', subplotPosVectors(r,c).v);
-        theMosaic.renderActivationMap(ax, pcVectors(:,pcaComponentIndex), ...
-             'fontSize', 14, ...
-              'titleForMap', title);
-        ylabel('')
-        set(ax, 'YTick', [])
-        if (pcaComponentIndex < 3)
-            xlabel('')
-            set(ax, 'XTick', [])
-        end
-    end
-end
-
-function visualizeSVMmodel(svmModel, data, classes)
-    sv = svmModel.SupportVectors;
-    h = max(abs(data(:)))/100; % Mesh grid step size
-    r = -h*100:h:h*100;
-    [X1,X2] = ndgrid(r, r);
-    [~,score] = predict(svmModel,[X1(:),X2(:)]);
-    scoreGrid = reshape(score(:,1),numel(r), numel(r));
-
-    figure(); clf;
-    class0Indices = find(classes == 0);
-    class1Indices = find(classes == 1);
-    
-    plot(data(class0Indices,1),data(class0Indices,2),'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'c'); hold on
-    plot(data(class1Indices,1), data(class1Indices,2), 'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
-    contourf(X1,X2,scoreGrid, 50); 
-    plot(data(class0Indices,1),data(class0Indices,2),'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'c')
-    plot(data(class1Indices,1), data(class1Indices,2), 'ko', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
-    plot(sv(:,1),sv(:,2),'ks','MarkerSize',12, 'LineWidth', 1.5);
-    colormap(brewermap(1024, 'RdBu'))
-    hold off
-    xlabel('PC component #1 activation')
-    ylabel('PC component #2 activation')
-    legend('null stimulus', 'test stimulus')
-    set(gca, 'FontSize',14)
-    axis 'square'
-end
