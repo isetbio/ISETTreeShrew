@@ -24,6 +24,17 @@
 		"type": "include",
 		"update": "",
 		"url": ""
+	},    {
+		"flavor": "",
+		"hook": "",
+		"name": "ISETPipelineToolbox",
+        "localHookTemplate": "",
+		"pathPlacement": "append",
+		"subfolder": "",
+		"toolboxRoot": "",
+		"type": "git",
+		"update": "",
+		"url": "https://github.com/isetbio/ISETPipelineToolbox.git"
 	},
 	{
 		"flavor": "",
