@@ -17,14 +17,15 @@
 		"hook": "",
 		"importance": "",
 		"localHookTemplate": "",
-		"name": "isetbio-isetbiostandalone",
+		"name": "isetbio",
 		"pathPlacement": "append",
 		"subfolder": "",
 		"toolboxRoot": "",
 		"type": "include",
 		"update": "",
 		"url": ""
-	},    {
+	},    
+    {
 		"flavor": "",
 		"hook": "",
 		"name": "ISETPipelineToolbox",
